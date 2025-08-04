@@ -14,7 +14,9 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 void resetInactivityTimer() {
+    noInterrupts(); // Désactiver les interruptions
     lastActivityTime = millis();
+    interrupts(); // Réactiver les interruptions
     SerialDBG.println("Activity detected, inactivity timer reset.");
 }
 
@@ -25,7 +27,7 @@ void notifyClients(const String& message) {
 void goToDeepSleep() {
     SerialDBG.println("Entering deep sleep mode.");
     delay(100);
-    esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, 1);
+    esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, HIGH);
     esp_deep_sleep_start();
 }
 
@@ -51,8 +53,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                 SerialDBG.println("PREPARE_FLASH command received. Toggling pins to enter RP2040 bootloader.");
                 notifyClients("log:Commande reçue. Préparation au mode bootloader du RP2040...");
                 
-                // Mettre la broche BOOTLOADER_PIN à HIGH
-                digitalWrite(BOOTLOADER_PIN, HIGH);
+                // Mettre la broche BOOTLOADER_PIN à LOW pour activer le mode bootloader
+                digitalWrite(BOOTLOADER_PIN, LOW);
                 delay(10);
                 
                 // Activer le RESET du RP2040
@@ -62,8 +64,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                 delay(100);
                 
                 // Relâcher la broche BOOTLOADER_PIN
-                digitalWrite(BOOTLOADER_PIN, LOW);
-                
+                //digitalWrite(BOOTLOADER_PIN, HIGH);
+
                 rp2040BootloaderActive = true;
                 notifyClients("EVENT:RP2040_BOOTLOADER_MODE");
             }
@@ -108,19 +110,22 @@ void setup() {
     
     // Initialisation de l'UART1 pour la communication avec le RP2040 sur les broches spécifiées
     Serial1.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
-    
-    delay(500);
-    
+
     // Configuration des broches pour le contrôle du RP2040
     pinMode(BOOTLOADER_PIN, OUTPUT);
-    digitalWrite(BOOTLOADER_PIN, LOW);
+    digitalWrite(BOOTLOADER_PIN, HIGH);
     pinMode(RESETRP2040_PIN, OUTPUT);
     digitalWrite(RESETRP2040_PIN, HIGH);
 
+    #ifdef LED_BUILTIN
+
+    #else
+        pinMode(LED_PIN, OUTPUT);
+        digitalWrite(LED_PIN, LOW); // Éteindre la LED au démarrage
+    #endif
+
     pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
-    if (digitalRead(WAKEUP_PIN) == LOW) {
-        goToDeepSleep();
-    }
+
     resetInactivityTimer();
 
     if (!LittleFS.begin()) {
@@ -146,10 +151,42 @@ void setup() {
     SerialDBG.println("Setup complete.");
 }
 
+void blink_led() {
+    static unsigned long lastBlinkTime = 0;
+    static bool ledState = false;
+
+    unsigned long currentMillis = millis();
+    if (currentMillis - lastBlinkTime >= 1000) { // 1 seconde
+        lastBlinkTime = currentMillis;
+        ledState = !ledState; // Inverser l'état de la LED
+        #ifdef LED_BUILTIN
+            if (ledState)
+            {
+                neopixelWrite(RGB_BUILTIN,RGB_BRIGHTNESS,RGB_BRIGHTNESS,RGB_BRIGHTNESS);
+                lastBlinkTime -= 900; // Ajuster le temps pour éviter le clignotement trop lent
+            }
+            else
+                neopixelWrite(RGB_BUILTIN,0,0,0);
+        #else
+            digitalWrite(LED_PIN, ledState ? HIGH : LOW);
+        #endif
+    }
+}
+
 void loop() {
-    if (digitalRead(WAKEUP_PIN) == LOW && (millis() - lastActivityTime > INACTIVITY_TIMEOUT)) {
+    unsigned long currentTime;
+    noInterrupts(); // Désactiver les interruptions
+    currentTime = millis() - lastActivityTime;
+    interrupts(); // Réactiver les interruptions
+
+    if (currentTime > INACTIVITY_TIMEOUT) {
+        SerialDBG.printf("Inactivity timeout reached: %lu ms. Last activity at: %lu ms\n", currentTime, lastActivityTime);
+        SerialDBG.println("Too much inactivity, going to deep sleep.");
+        SerialDBG.flush();
         goToDeepSleep();
     }
+
+    blink_led();
 
     ws.cleanupClients();
     handleFlasher(); // Appel de la machine à états dans la boucle principale

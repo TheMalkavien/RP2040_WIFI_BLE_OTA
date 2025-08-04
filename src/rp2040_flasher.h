@@ -46,6 +46,7 @@ enum FlasherState {
     DONE,
     ERROR
 };
+void resetInactivityTimer();
 
 // Prototypes des fonctions pour le processus de flashage
 void startFlashProcess(AsyncWebSocket &ws);

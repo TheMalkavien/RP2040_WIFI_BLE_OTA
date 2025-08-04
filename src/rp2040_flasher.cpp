@@ -105,12 +105,15 @@ void handleFlasher() {
             if (millis() - stateStartTime < 1000) {
                 return;
             }
+            resetInactivityTimer();
             binFile = LittleFS.open("/firmware.bin", "r");
             if (!binFile) {
                 notifyClients("error:Fichier firmware.bin introuvable.");
                 flasherState = ERROR;
                 return;
             }
+            // Relâcher la broche BOOTLOADER_PIN
+            digitalWrite(BOOTLOADER_PIN, HIGH);
             fileSize = binFile.size();
             currentFilePosition = 0;
             notifyClients("log:Synchronisation avec le bootloader du RP2040...");
@@ -135,7 +138,7 @@ void handleFlasher() {
                     SerialDBG.printf("Response OK: 0x%08X\n", response);
                     flasherState = SEND_INFO_COMMAND;
                 }
-            } else if (millis() - stateStartTime > 5000) {
+            } else if (millis() - stateStartTime > 60000) { // on se laisse 60 secondes pour la réponse
                  notifyClients("error:Timeout lors de l'attente de la réponse de synchronisation.");
                  SerialDBG.println("Error: Timeout waiting for SYNC response.");
                  flasherState = ERROR;
@@ -147,6 +150,7 @@ void handleFlasher() {
             notifyClients("log:Récupération des informations sur la flash...");
             uint32_t infoCmd = CMD_INFO;
             sendCommandNonBlocking((uint8_t*)&infoCmd, sizeof(infoCmd));
+            resetInactivityTimer();
             flasherState = WAIT_INFO_RESPONSE;
             break;
         }
@@ -190,6 +194,7 @@ void handleFlasher() {
 
         case ERASE_SECTOR: {
             if (currentEraseAddress >= (flashStart + fileSize)) {
+                resetInactivityTimer();
                 notifyClients("log:Effacement terminé.");
                 SerialDBG.println("Flash erase complete.");
                 currentFilePosition = 0;
@@ -241,6 +246,7 @@ void handleFlasher() {
                 flasherState = CALCULATE_CRC;
                 return;
             }
+            resetInactivityTimer();
             binFile.seek(currentFilePosition); 
             uint32_t r = binFile.read(filebuffer, writeSize); 
             uint32_t towrite = r;
@@ -300,6 +306,7 @@ void handleFlasher() {
 
         case CALCULATE_CRC: {
             notifyClients("log:Calcul du CRC du firmware...");
+            resetInactivityTimer();
             binFile.seek(0);
             calculatedCrc = calculateCrc32FromFile(binFile);
             notifyClients(String("log:CRC calculé : 0x") + String(calculatedCrc, HEX));
@@ -316,6 +323,7 @@ void handleFlasher() {
             sealCmd[2] = fileSize;
             sealCmd[3] = calculatedCrc;
             sendCommandNonBlocking((uint8_t*)&sealCmd, sizeof(sealCmd));
+            resetInactivityTimer();
             flasherState = WAIT_SEAL_RESPONSE;
             break;
         }
@@ -347,6 +355,7 @@ void handleFlasher() {
         case DONE:
             notifyClients("log:Flashage terminé ! L'appareil va redémarrer.");
             notifyClients("EVENT:FLASH_COMPLETE");
+            resetInactivityTimer();
             binFile.close();
             uint32_t goCmd[2];
             goCmd[0] = CMD_GO;
