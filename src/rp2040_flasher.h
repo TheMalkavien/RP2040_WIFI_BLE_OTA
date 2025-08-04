@@ -20,11 +20,6 @@
 // Le baud rate pour le RP2040 a été mis à jour
 #define RP2040_SERIAL_BAUD 250000
 
-// Définitions pour l'en-tête UF2
-const uint32_t UF2_MAGIC_START0 = 0x0A324655;
-const uint32_t UF2_MAGIC_START1 = 0x9E5D5157;
-const uint32_t UF2_MAGIC_END = 0x0AB16F30;
-
 // Délai d'attente pour les réponses du bootloader (en ms)
 #define BOOTLOADER_RESPONSE_DELAY 10
 
@@ -50,20 +45,6 @@ enum FlasherState {
     WAIT_SEAL_RESPONSE,
     DONE,
     ERROR
-};
-
-struct UF2_Block {
-    // 32 byte header
-    uint32_t magicStart0;
-    uint32_t magicStart1;
-    uint32_t flags;
-    uint32_t targetAddr;
-    uint32_t payloadSize;
-    uint32_t blockNo;
-    uint32_t numBlocks;
-    uint32_t fileSize; // or familyID;
-    uint8_t data[476];
-    uint32_t magicEnd;
 };
 
 // Prototypes des fonctions pour le processus de flashage

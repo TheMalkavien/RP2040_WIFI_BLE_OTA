@@ -82,20 +82,20 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
 
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     resetInactivityTimer();
-    static File uf2File;
+    static File binFile;
     if (!index) {
         notifyClients("log:Début du téléversement...");
-        uf2File = LittleFS.open("/firmware.bin", "w");
-        if (!uf2File) {
+        binFile = LittleFS.open("/firmware.bin", "w");
+        if (!binFile) {
             notifyClients("error:Impossible d'ouvrir le fichier sur l'ESP32.");
             return;
         }
     }
     if (len) {
-        uf2File.write(data, len);
+        binFile.write(data, len);
     }
     if (final) {
-        uf2File.close();
+        binFile.close();
         notifyClients("EVENT:UPLOAD_COMPLETE");
         notifyClients("log:Fichier reçu. Prêt à préparer le flash.");
     }

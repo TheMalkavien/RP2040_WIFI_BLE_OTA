@@ -9,7 +9,7 @@ extern void notifyClients(const String& message);
 // Variables globales pour le processus de flashage
 FlasherState flasherState = IDLE;
 AsyncWebSocket* webSocketPtr;
-File uf2File;
+File binFile;
 uint32_t fileSize = 0;
 uint8_t filebuffer[4096];
 uint32_t currentFilePosition = 0;
@@ -105,13 +105,13 @@ void handleFlasher() {
             if (millis() - stateStartTime < 1000) {
                 return;
             }
-            uf2File = LittleFS.open("/firmware.bin", "r");
-            if (!uf2File) {
+            binFile = LittleFS.open("/firmware.bin", "r");
+            if (!binFile) {
                 notifyClients("error:Fichier firmware.bin introuvable.");
                 flasherState = ERROR;
                 return;
             }
-            fileSize = uf2File.size();
+            fileSize = binFile.size();
             currentFilePosition = 0;
             notifyClients("log:Synchronisation avec le bootloader du RP2040...");
             uint32_t syncCmd = CMD_SYNC;
@@ -241,12 +241,12 @@ void handleFlasher() {
                 flasherState = CALCULATE_CRC;
                 return;
             }
-            uf2File.seek(currentFilePosition); 
-            uint32_t r = uf2File.read(filebuffer, writeSize); 
+            binFile.seek(currentFilePosition); 
+            uint32_t r = binFile.read(filebuffer, writeSize); 
             uint32_t towrite = r;
             if (r <= 0) 
             {
-                notifyClients("error:Erreur de lecture du fichier UF2.");
+                notifyClients("error:Erreur de lecture du fichier BIN.");
                 flasherState = ERROR;
                 return;
             }
@@ -300,8 +300,8 @@ void handleFlasher() {
 
         case CALCULATE_CRC: {
             notifyClients("log:Calcul du CRC du firmware...");
-            uf2File.seek(0);
-            calculatedCrc = calculateCrc32FromFile(uf2File);
+            binFile.seek(0);
+            calculatedCrc = calculateCrc32FromFile(binFile);
             notifyClients(String("log:CRC calculé : 0x") + String(calculatedCrc, HEX));
             flasherState = SEAL_FLASH;
             break;
@@ -347,7 +347,7 @@ void handleFlasher() {
         case DONE:
             notifyClients("log:Flashage terminé ! L'appareil va redémarrer.");
             notifyClients("EVENT:FLASH_COMPLETE");
-            uf2File.close();
+            binFile.close();
             uint32_t goCmd[2];
             goCmd[0] = CMD_GO;
             goCmd[1] = flashStart;
@@ -356,7 +356,7 @@ void handleFlasher() {
             break;
 
         case ERROR:
-            uf2File.close();
+            binFile.close();
             flasherState = IDLE;
             break;
     }
