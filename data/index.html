@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 UF2 Uploader - Étape 1</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --light-gray: #f0f2f5;
+            --dark-gray: #555;
+            --text-color: #333;
+            --white: #fff;
+            --border-radius: 12px;
+            --box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+        }
+        
+        html { box-sizing: border-box; }
+        *, *:before, *:after { box-sizing: inherit; }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            background-color: var(--light-gray); 
+            margin: 0;
+            padding: 1rem;
+        }
+
+        .container { 
+            background-color: var(--white); 
+            padding: 2rem 3rem; 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--box-shadow); 
+            text-align: center; 
+            width: 100%; 
+            max-width: 500px; 
+        }
+
+        h1 { 
+            color: var(--text-color); 
+            margin-top: 0;
+            margin-bottom: 0.5rem; 
+        }
+        p {
+            color: var(--dark-gray);
+            margin-bottom: 2rem;
+        }
+
+        .file-input-wrapper { 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 2px dashed var(--primary-color); 
+            border-radius: 8px; 
+            padding: 2.5rem; 
+            width: 100%; 
+            cursor: pointer; 
+            transition: background-color 0.2s, border-color 0.2s; 
+            margin-bottom: 1.5rem; 
+        }
+        .file-input-wrapper.dragover {
+            border-color: var(--success-color);
+            background-color: #f0fff4;
+        }
+        input[type="file"] { display: none; }
+        .file-label { color: var(--primary-color); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; }
+        #file-name { color: var(--dark-gray); margin-top: 1rem; font-style: italic; }
+
+        .button-group { 
+            display: flex; 
+            justify-content: center; 
+            gap: 1rem; 
+            margin-top: 1.5rem; 
+            flex-wrap: wrap;
+        }
+
+        .btn { 
+            padding: 0.8rem 1.5rem; 
+            border: none; 
+            color: var(--white); 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 1rem; 
+            font-weight: 500;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background-color: var(--primary-color); }
+        .btn-success { background-color: var(--success-color); }
+        .btn-danger { background-color: #dc3545; }
+        .btn:disabled { background-color: #a0a0a0; cursor: not-allowed; }
+
+        #status-container { 
+            margin-top: 1.5rem; 
+            text-align: left; 
+            background-color: #f8f9fa; 
+            padding: 1rem; 
+            border-radius: 8px; 
+            min-height: 100px; 
+            overflow-y: auto; 
+            max-height: 200px;
+            border: 1px solid #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .status-error { color: #dc3545; font-weight: bold; }
+        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #007bff; animation: spin 1s ease infinite; margin: 2rem auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Étape 1: Téléverser le Firmware</h1>
+        <p>Choisissez un fichier <code>.bin</code> ou glissez-le dans la zone ci-dessous.</p>
+        
+        <form id="upload-form">
+            <label for="file-input" class="file-input-wrapper">
+                <span class="file-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Choisir un fichier
+                </span>
+                <div id="file-name">Aucun fichier sélectionné</div>
+            </label>
+            <input type="file" id="file-input" name="firmware" accept=".bin" required>
+            
+            <div class="button-group">
+                <input type="submit" id="upload-btn" value="1. Téléverser" class="btn btn-primary" disabled>
+                <button type="button" id="prepare-flash-btn" class="btn btn-success" disabled>2. Préparer le Flash</button>
+            </div>
+            
+            <div id="flash-buttons" style="display: none; margin-top: 1rem;">
+                <button type="button" id="start-flash-btn" class="btn btn-primary">3. Démarrer le Flash</button>
+                <button type="button" id="cancel-flash-btn" class="btn btn-danger">Annuler</button>
+            </div>
+
+        </form>
+
+        <div id="status-container"></div>
+    </div>
+    <script>
+        const form = document.getElementById('upload-form');
+        const fileInput = document.getElementById('file-input');
+        const fileInputWrapper = document.querySelector('.file-input-wrapper');
+        const fileNameDiv = document.getElementById('file-name');
+        const uploadBtn = document.getElementById('upload-btn');
+        const prepareFlashBtn = document.getElementById('prepare-flash-btn');
+        const flashButtonsDiv = document.getElementById('flash-buttons');
+        const startFlashBtn = document.getElementById('start-flash-btn');
+        const cancelFlashBtn = document.getElementById('cancel-flash-btn');
+        const statusDiv = document.getElementById('status-container');
+        
+        let websocket;
+        let isRp2040BootloaderMode = false;
+
+        function addStatus(message) {
+            let logClass = '', prefix = '>';
+            let content = message;
+            
+            if (message.startsWith("log:")) {
+                content = message.substring(4);
+            } else if (message.startsWith("error:")) {
+                logClass = 'status-error';
+                prefix = 'X';
+                content = message.substring(6);
+            }
+            statusDiv.innerHTML += `<div class="${logClass}">${prefix} ${content}</div>`;
+            statusDiv.scrollTop = statusDiv.scrollHeight;
+        }
+
+        function handleFile(file) {
+            if (file && file.name.endsWith('.bin')) {
+                fileNameDiv.textContent = file.name;
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                uploadBtn.disabled = false;
+                prepareFlashBtn.disabled = true;
+            } else {
+                addStatus("error:Veuillez sélectionner un fichier .bin valide.");
+            }
+        }
+
+        function initWebSocket() {
+            websocket = new WebSocket(`ws://${window.location.hostname}/ws`);
+            
+            websocket.onopen = () => {
+                addStatus("log:Connecté au mode Uploader.");
+            };
+
+            websocket.onmessage = (event) => {
+                const message = event.data;
+                
+                if (message.startsWith("EVENT:")) {
+                    const eventName = message.substring(6);
+                    if (eventName === "UPLOAD_COMPLETE") {
+                        prepareFlashBtn.disabled = false;
+                        uploadBtn.disabled = true;
+                    } else if (eventName === "RP2040_BOOTLOADER_MODE") {
+                        isRp2040BootloaderMode = true;
+                        prepareFlashBtn.style.display = 'none';
+                        flashButtonsDiv.style.display = 'flex';
+                        addStatus("log:RP2040 prêt en mode bootloader. Vous pouvez démarrer le flash.");
+                    } else if (eventName === "FLASH_COMPLETE") {
+                        addStatus("log:Flashage terminé ! L'appareil va redémarrer.");
+                        // Recharger la page pour un nouveau cycle
+                        setTimeout(() => window.location.reload(true), 3000);
+                    }
+                } else {
+                   addStatus(message);
+                }
+            };
+
+            websocket.onclose = () => {
+                addStatus("log:Connexion perdue. Tentative de reconnexion...");
+                setTimeout(initWebSocket, 2000);
+            };
+        }
+        
+        fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) handleFile(fileInput.files[0]); });
+        fileInputWrapper.addEventListener('dragover', (e) => { e.preventDefault(); fileInputWrapper.classList.add('dragover'); });
+        fileInputWrapper.addEventListener('dragleave', () => { fileInputWrapper.classList.remove('dragover'); });
+        fileInputWrapper.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileInputWrapper.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('firmware', fileInput.files[0]);
+            addStatus("log:Téléversement en cours...");
+            uploadBtn.disabled = true;
+            fetch('/', { method: 'POST', body: formData }).catch(err => addStatus('error: ' + err));
+        });
+
+        prepareFlashBtn.addEventListener('click', () => {
+            websocket.send('CMD:PREPARE_FLASH');
+        });
+        
+        startFlashBtn.addEventListener('click', () => {
+            if (isRp2040BootloaderMode) {
+                websocket.send('CMD:START_FLASH');
+                startFlashBtn.disabled = true;
+                cancelFlashBtn.disabled = true;
+            } else {
+                addStatus("error:Le RP2040 n'est pas en mode bootloader.");
+            }
+        });
+        
+        cancelFlashBtn.addEventListener('click', () => {
+            // Recharger la page pour annuler le processus
+            window.location.reload(true);
+        });
+
+        window.onload = initWebSocket;
+    </script>
+</body>
+</html>
