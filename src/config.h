@@ -17,7 +17,7 @@
 // Nouvelles broches pour la communication avec le RP2040
 #define RP2040_SERIAL_TX_PIN 7
 #define RP2040_SERIAL_RX_PIN 8
-#define RP2040_SERIAL_BAUD 250000
+#define RP2040_SERIAL_BAUD 921600
 
 
 

@@ -16,10 +16,6 @@
 #define RSP_OK (('O' << 0) | ('K' << 8) | ('O' << 16) | ('K' << 24))
 #define RSP_ERR (('E' << 0) | ('R' << 8) | ('R' << 16) | ('!' << 24))
 
-
-// Le baud rate pour le RP2040 a été mis à jour
-#define RP2040_SERIAL_BAUD 250000
-
 // Délai d'attente pour les réponses du bootloader (en ms)
 #define BOOTLOADER_RESPONSE_DELAY 10
 
