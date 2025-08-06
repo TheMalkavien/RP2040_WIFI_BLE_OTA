@@ -1,3 +1,5 @@
+FIXME : mettre à jour la doc. Le principe ne change pas, juste les détails, pins, etc... cf code.
+
 ### English Version
 
 # ESP32-S3 BIN Wireless Uploader
