@@ -1,4 +1,7 @@
 FIXME : mettre à jour la doc. Le principe ne change pas, juste les détails, pins, etc... cf code.
+Précision utile : ça marche avec le firmware.bin (pas uf2), et uniquement si recompilé avec le ld script modifié pour virer la section .boot et réordonner le .text en premier.
+Cf https://github.com/TheMalkavien/rp2040-serial-bootloader
+Je joindrai le fichier ici asap.
 
 ### English Version
 
