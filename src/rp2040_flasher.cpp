@@ -106,6 +106,7 @@ void handleFlasher() {
                 return;
             }
             resetInactivityTimer();
+            //Serial1.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
             binFile = LittleFS.open("/firmware.bin", "r");
             if (!binFile) {
                 notifyClients("error:Fichier firmware.bin introuvable.");

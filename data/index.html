@@ -206,7 +206,7 @@
                         isRp2040BootloaderMode = true;
                         prepareFlashBtn.style.display = 'none';
                         flashButtonsDiv.style.display = 'flex';
-                        addStatus("log:RP2040 prêt en mode bootloader. Vous pouvez démarrer le flash.");
+                        addStatus("log:Maintenant redémarrez le RP2040, il se mettra en mode flash.");
                     } else if (eventName === "FLASH_COMPLETE") {
                         addStatus("log:Flashage terminé ! L'appareil va redémarrer.");
                         // Recharger la page pour un nouveau cycle

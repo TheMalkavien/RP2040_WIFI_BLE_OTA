@@ -29,8 +29,9 @@ void goToDeepSleep() {
     pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
 
     delay(200);  // très important
-    SerialDBG.println(digitalRead(BOOTLOADER_PIN) ? "BOOTLOADER_PIN is HIGH" : "BOOTLOADER_PIN is LOW");
-    esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, HIGH);
+    int level = digitalRead(BOOTLOADER_PIN);
+    SerialDBG.println(level ? "BOOTLOADER_PIN is HIGH" : "BOOTLOADER_PIN is LOW");
+    esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, !level);
     esp_deep_sleep_start();
 }
 
@@ -72,6 +73,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
 
             if (strcmp((char*)data, "CMD:START_FLASH") == 0) {
                  if (rp2040BootloaderActive) {
+                    // Relâcher la broche BOOTLOADER_PIN
+                    digitalWrite(BOOTLOADER_PIN, HIGH);
                     startFlashProcess(ws); // Appel de la nouvelle fonction pour démarrer la machine à états
                  } else {
                     notifyClients("error:Le RP2040 n'est pas en mode bootloader.");
@@ -164,6 +167,8 @@ void setup() {
     
     // Initialisation de l'UART1 pour la communication avec le RP2040 sur les broches spécifiées
     Serial1.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
+    //pinMode(RP2040_SERIAL_RX_PIN, INPUT);
+    //pinMode(RP2040_SERIAL_TX_PIN, INPUT);
     delay(100); // Attendre que l'UART soit prête
     printWakeupReason();
 
@@ -172,6 +177,8 @@ void setup() {
     digitalWrite(BOOTLOADER_PIN, HIGH);
     pinMode(RESETRP2040_PIN, OUTPUT);
     digitalWrite(RESETRP2040_PIN, HIGH);
+    pinMode(BOOTLOADER_PIN, OUTPUT);
+    digitalWrite(BOOTLOADER_PIN, HIGH);
 
     #ifdef LED_BUILTIN
 
@@ -179,8 +186,6 @@ void setup() {
         pinMode(LED_PIN, OUTPUT);
         digitalWrite(LED_PIN, LOW); // Éteindre la LED au démarrage
     #endif
-
-    //pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
 
     resetInactivityTimer();
 
