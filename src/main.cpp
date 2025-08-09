@@ -162,6 +162,7 @@ void printWakeupReason() {
 }
 
 void setup() {
+    setCpuFrequencyMhz(80);  // 80 MHz semble être le plancher stable pour 921600
     // Initialisation de l'UART pour le débogage
     SerialDBG.begin(DBG_SERIAL_BAUD);
     
