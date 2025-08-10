@@ -63,11 +63,9 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                 delay(100);
                 digitalWrite(RESETRP2040_PIN, HIGH);
                 delay(100);
-                
-                // Relâcher la broche BOOTLOADER_PIN
-                //digitalWrite(BOOTLOADER_PIN, HIGH);
+                notifyClients("log:En attente de la réponse du RP2040...");
+                startFlashProcess(ws); // Appel de la nouvelle fonction pour démarrer la machine à états
 
-                rp2040BootloaderActive = true;
                 notifyClients("EVENT:RP2040_BOOTLOADER_MODE");
             }
 
@@ -75,7 +73,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                  if (rp2040BootloaderActive) {
                     // Relâcher la broche BOOTLOADER_PIN
                     digitalWrite(BOOTLOADER_PIN, HIGH);
-                    startFlashProcess(ws); // Appel de la nouvelle fonction pour démarrer la machine à états
+                    notifyClients("log:Démarrage du processus de flashage...");
+                    startFlashProcess(ws, SEND_INFO_COMMAND); // Appel de la nouvelle fonction pour démarrer la machine à états
                  } else {
                     notifyClients("error:Le RP2040 n'est pas en mode bootloader.");
                  }

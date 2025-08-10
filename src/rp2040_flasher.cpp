@@ -87,10 +87,9 @@ uint32_t calculateCrc32FromFile(File& file) {
 }
 
 // Fonction pour initialiser le processus de flashage
-void startFlashProcess(AsyncWebSocket &ws) {
+void startFlashProcess(AsyncWebSocket &ws, FlasherState fs) {
     webSocketPtr = &ws;
-    flasherState = INIT;
-    notifyClients("log:Démarrage du processus de flashage...");
+    flasherState = fs;
     stateStartTime = millis();
     lastProgress = 0;
 }
@@ -113,8 +112,7 @@ void handleFlasher() {
                 flasherState = ERROR;
                 return;
             }
-            // Relâcher la broche BOOTLOADER_PIN
-            digitalWrite(BOOTLOADER_PIN, HIGH);
+
             fileSize = binFile.size();
             currentFilePosition = 0;
             notifyClients("log:Synchronisation avec le bootloader du RP2040...");
@@ -137,12 +135,17 @@ void handleFlasher() {
                 } else {
                     notifyClients("log:Synchronisation réussie.");
                     SerialDBG.printf("Response OK: 0x%08X\n", response);
-                    flasherState = SEND_INFO_COMMAND;
+                    flasherState = IDLE; //une fois synchronisé, on attend le début du flashage
+                    // Relâcher la broche BOOTLOADER_PIN
+                    digitalWrite(BOOTLOADER_PIN, HIGH);
+                    rp2040BootloaderActive = true;
+                    notifyClients("EVENT:RP2040_SYNCED");
                 }
-            } else if (millis() - stateStartTime > 60000) { // on se laisse 60 secondes pour la réponse
+            } else if (millis() - stateStartTime > 1000) { // on se laisse 60 secondes pour la réponse
                  notifyClients("error:Timeout lors de l'attente de la réponse de synchronisation.");
                  SerialDBG.println("Error: Timeout waiting for SYNC response.");
-                 flasherState = ERROR;
+                 startFlashProcess(*webSocketPtr, INIT); // Recommencer l'initialisation
+                 // TODO : passer en mode erreur après xx tentatives
             }
             break;
         }

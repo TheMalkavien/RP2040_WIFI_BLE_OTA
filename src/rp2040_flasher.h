@@ -43,7 +43,7 @@ enum FlasherState {
     ERROR
 };
 void resetInactivityTimer();
-
+extern bool rp2040BootloaderActive; // Indique si le RP2040 est en mode bootloader
 // Prototypes des fonctions pour le processus de flashage
-void startFlashProcess(AsyncWebSocket &ws);
+void startFlashProcess(AsyncWebSocket &ws, FlasherState fs = INIT);
 void handleFlasher();

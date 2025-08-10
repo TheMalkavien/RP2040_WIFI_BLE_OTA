@@ -205,8 +205,11 @@
                     } else if (eventName === "RP2040_BOOTLOADER_MODE") {
                         isRp2040BootloaderMode = true;
                         prepareFlashBtn.style.display = 'none';
-                        flashButtonsDiv.style.display = 'flex';
                         addStatus("log:Maintenant redémarrez le RP2040, il se mettra en mode flash.");
+                    } else if (eventName === "RP2040_SYNCED") {
+                        isRp2040BootloaderMode = true;
+                        flashButtonsDiv.style.display = 'flex';
+                        addStatus("log:Le RP2040 est synchronisé et prêt pour le flashage.");
                     } else if (eventName === "FLASH_COMPLETE") {
                         addStatus("log:Flashage terminé ! L'appareil va redémarrer.");
                         // Recharger la page pour un nouveau cycle
