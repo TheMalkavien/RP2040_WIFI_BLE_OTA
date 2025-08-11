@@ -21,6 +21,6 @@
 #ifdef RGB_BUILTIN
 #undef RGB_BUILTIN
 #undef RGB_BRIGHTNESS
-#define RGB_BRIGHTNESS 16 // Change white brightness (max 255)
+#define RGB_BRIGHTNESS 10 // Change white brightness (max 255)
 #define RGB_BUILTIN 21
 #endif
