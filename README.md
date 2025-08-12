@@ -29,8 +29,7 @@ Pour que l'ESP32 puisse communiquer et contrôler le RP2040, des connexions phys
 
 | Broche ESP32 | Rôle | Vers la broche RP2040 |
 | :--- | :--- | :--- |
-| **GND** | Masse | **GND** |
-| **GPIO 2** | Contrôle du Reset | **RESET** |
+| **GPIO 2** | Contrôle du Reset (facultatif, conseillé de mettre un pulldown externe) | **RESET** |
 | **GPIO 3** | Contrôle du mode Bootloader| **GPIO 22** |
 | **GPIO 7 (TX)** | Communication (Transmission) | **GPIO 8 (RX)** |
 | **GPIO 8 (RX)** | Communication (Réception) | **GPIO 9 (TX)** |
