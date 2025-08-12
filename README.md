@@ -13,15 +13,25 @@ Ce projet transforme un ESP32 en un pont WiFi pour téléverser ("flasher") des 
 
 ---
 
+## ⚠️ Prérequis Indispensable
+
+Pour que ce flasheur fonctionne, le RP2040 **doit** avoir été flashé au préalable avec un bootloader spécifique qui sait communiquer avec l'ESP32.
+
+* **Bootloader requis :** [TheMalkavien/rp2040-serial-bootloader](https://github.com/TheMalkavien/rp2040-serial-bootloader)
+
+Veuillez suivre les instructions de ce dépôt pour installer le bootloader sur votre RP2040 avant de tenter d'utiliser ce flasheur WiFi. Sans ce bootloader, l'ESP32 ne pourra pas synchroniser et flasher le firmware.
+
+---
+
 ## 🔌 Guide de Branchement : ESP32 vers RP2040
 
 Pour que l'ESP32 puisse communiquer et contrôler le RP2040, des connexions physiques précises sont nécessaires. Assurez-vous que les deux cartes partagent une masse commune (GND).
 
-| **Broche ESP32** | **Rôle** | **Vers la broche RP2040** |
+| Broche ESP32 | Rôle | Vers la broche RP2040 |
 | :--- | :--- | :--- |
 | **GND** | Masse | **GND** |
 | **GPIO 2** | Contrôle du Reset | **RESET** |
-| **GPIO 3** | Contrôle du mode Bootloader | **GPIO 22** |
+| **GPIO 3** | Contrôle du mode Bootloader| **GPIO 22** |
 | **GPIO 7 (TX)** | Communication (Transmission) | **GPIO 8 (RX)** |
 | **GPIO 8 (RX)** | Communication (Réception) | **GPIO 9 (TX)** |
 
@@ -31,7 +41,7 @@ Pour que l'ESP32 puisse communiquer et contrôler le RP2040, des connexions phys
 
 ## 🚀 Guide d'Utilisation : Flasher le Firmware
 
-Une fois les branchements effectués, suivez ces étapes pour téléverser un nouveau firmware sur votre RP2040.
+Une fois le bootloader requis installé et les branchements effectués, suivez ces étapes pour téléverser un nouveau firmware.
 
 ### Étape 1 : Connexion au Flasheur
 
