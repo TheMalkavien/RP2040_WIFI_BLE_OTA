@@ -6,16 +6,26 @@
 #define DBG_SERIAL_TX 21 // 43 for USB
 #define DBG_SERIAL_RX 20 // 44 for USB
 #define DBG_SERIAL_BAUD 115200
+
+
 #define SerialDBG Serial
+#define SerialRP2040 Serial1
+#define DEBUG(x) SerialDBG.x
+
+
 #define WAKEUP_PIN GPIO_NUM_3 // same as BOOTLOADER PIN 
 #define RESETRP2040_PIN GPIO_NUM_2
 #define BOOTLOADER_PIN GPIO_NUM_3 // to GPIO22 of the RP2040
 #define INACTIVITY_TIMEOUT (1 * 60 * 1000)
 
-#define LED_PIN GPIO_NUM_21
 
-#define RP2040_SERIAL_TX_PIN 7 // to the GPIO9 of the RP2040
-#define RP2040_SERIAL_RX_PIN 8 // to the GPIO8 of the RP2040
+#ifndef RP2040_SERIAL_TX_PIN
+#define RP2040_SERIAL_TX_PIN TX // to the GPIO9 of the RP2040
+#endif
+#ifndef RP2040_SERIAL_RX_PIN
+#define RP2040_SERIAL_RX_PIN RX // to the GPIO8 of the RP2040
+#endif
+
 #define RP2040_SERIAL_BAUD 921600
 
 #ifdef RGB_BUILTIN

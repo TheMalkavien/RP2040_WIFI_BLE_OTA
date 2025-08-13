@@ -17,7 +17,7 @@ void resetInactivityTimer() {
     noInterrupts(); // Désactiver les interruptions
     lastActivityTime = millis();
     interrupts(); // Réactiver les interruptions
-    SerialDBG.println("Activity detected, inactivity timer reset.");
+    DEBUG(println("Activity detected, inactivity timer reset."));
 }
 
 void notifyClients(const String& message) {
@@ -25,12 +25,12 @@ void notifyClients(const String& message) {
 }
 
 void goToDeepSleep() {
-    SerialDBG.println("Entering deep sleep mode.");
+    DEBUG(println("Entering deep sleep mode."));
     pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
 
     delay(200);  // très important
     int level = digitalRead(BOOTLOADER_PIN);
-    SerialDBG.println(level ? "BOOTLOADER_PIN is HIGH" : "BOOTLOADER_PIN is LOW");
+    DEBUG(println(level ? "BOOTLOADER_PIN is HIGH" : "BOOTLOADER_PIN is LOW"));
     esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, !level);
     esp_deep_sleep_start();
 }
@@ -39,19 +39,19 @@ void goToDeepSleep() {
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
     resetInactivityTimer();
     if (type == WS_EVT_CONNECT) {
-        SerialDBG.printf("WebSocket client #%u connected\n", client->id());
+        DEBUG(printf("WebSocket client #%u connected\n", client->id()));
 
         client->text("EVENT:MODE_UPLOADER");
 
     } else if (type == WS_EVT_DISCONNECT) {
-        SerialDBG.printf("WebSocket client #%u disconnected\n", client->id());
+        DEBUG(printf("WebSocket client #%u disconnected\n", client->id()));
     } else if (type == WS_EVT_DATA) {
         AwsFrameInfo *info = (AwsFrameInfo*)arg;
         if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
             data[len] = 0;
             
             if (strcmp((char*)data, "CMD:PREPARE_FLASH") == 0) {
-                SerialDBG.println("PREPARE_FLASH command received. Toggling pins to enter RP2040 bootloader.");
+                DEBUG(println("PREPARE_FLASH command received. Toggling pins to enter RP2040 bootloader."));
                 notifyClients("log:Commande reçue. Préparation au mode bootloader du RP2040...");
                 
                 // Mettre la broche BOOTLOADER_PIN à LOW pour activer le mode bootloader
@@ -163,13 +163,15 @@ void printWakeupReason() {
 void setup() {
     setCpuFrequencyMhz(80);  // 80 MHz semble être le plancher stable pour 921600
     // Initialisation de l'UART pour le débogage
+
     SerialDBG.begin(DBG_SERIAL_BAUD);
-    
+
     // Initialisation de l'UART1 pour la communication avec le RP2040 sur les broches spécifiées
-    Serial1.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
+    SerialRP2040.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
+
     //pinMode(RP2040_SERIAL_RX_PIN, INPUT);
     //pinMode(RP2040_SERIAL_TX_PIN, INPUT);
-    delay(100); // Attendre que l'UART soit prête
+    delay(500); // Attendre que l'UART soit prête
     printWakeupReason();
 
     // Configuration des broches pour le contrôle du RP2040
@@ -180,22 +182,20 @@ void setup() {
     pinMode(BOOTLOADER_PIN, OUTPUT);
     digitalWrite(BOOTLOADER_PIN, HIGH);
 
-    #ifdef LED_BUILTIN
-
-    #else
-        pinMode(LED_PIN, OUTPUT);
-        digitalWrite(LED_PIN, LOW); // Éteindre la LED au démarrage
+    #ifndef RGB_BUILTIN
+        pinMode(LED_BUILTIN, OUTPUT);
+        digitalWrite(LED_BUILTIN, LOW); // Éteindre la LED au démarrage
     #endif
 
     resetInactivityTimer();
 
     if (!LittleFS.begin()) {
-        SerialDBG.println("LittleFS mount failed!");
+        DEBUG(println("LittleFS mount failed!"));
     }
 
     WiFi.softAP(SSID, PASSWORD);
-    SerialDBG.print("AP IP address: ");
-    SerialDBG.println(WiFi.softAPIP());
+    DEBUG(print("AP IP address: "));
+    DEBUG(println(WiFi.softAPIP()));
 
     ws.onEvent(onWsEvent);
     server.addHandler(&ws);
@@ -209,7 +209,7 @@ void setup() {
     }, handleUpload);
 
     server.begin();
-    SerialDBG.println("Setup complete.");
+    DEBUG(println("Setup complete."));
 }
 
 void blink_led() {
@@ -220,16 +220,16 @@ void blink_led() {
     if (currentMillis - lastBlinkTime >= 1000) { // 1 seconde
         lastBlinkTime = currentMillis;
         ledState = !ledState; // Inverser l'état de la LED
-        #ifdef LED_BUILTIN
+        #ifdef RGB_BUILTIN
             if (ledState)
             {
                 neopixelWrite(RGB_BUILTIN,RGB_BRIGHTNESS,RGB_BRIGHTNESS,RGB_BRIGHTNESS);
-                lastBlinkTime -= 900; // Ajuster le temps pour éviter le clignotement trop lent
+                //lastBlinkTime -= 900; // Ajuster le temps pour éviter le clignotement trop lent
             }
             else
                 neopixelWrite(RGB_BUILTIN,0,0,0);
-        #else
-            digitalWrite(LED_PIN, ledState ? HIGH : LOW);
+        #elif
+            digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
         #endif
     }
 }
@@ -241,9 +241,9 @@ void loop() {
     interrupts(); // Réactiver les interruptions
 
     if (currentTime > INACTIVITY_TIMEOUT) {
-        SerialDBG.printf("Inactivity timeout reached: %lu ms. Last activity at: %lu ms\n", currentTime, lastActivityTime);
-        SerialDBG.println("Too much inactivity, going to deep sleep.");
-        SerialDBG.flush();
+        DEBUG(printf("Inactivity timeout reached: %lu ms. Last activity at: %lu ms\n", currentTime, lastActivityTime));
+        DEBUG(println("Too much inactivity, going to deep sleep."));
+        DEBUG(flush());
         goToDeepSleep();
     }
 

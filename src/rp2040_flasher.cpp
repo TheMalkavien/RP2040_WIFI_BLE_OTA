@@ -27,8 +27,8 @@ uint32_t calculatedCrc = 0;
 
 // Fonction pour vider le buffer série d'entrée
 void flushSerial() {
-    while (Serial1.available()) {
-        Serial1.read();
+    while (SerialRP2040.available()) {
+        SerialRP2040.read();
     }
 }
 
@@ -36,16 +36,16 @@ void flushSerial() {
 void sendCommandNonBlocking(const uint8_t* command, size_t len, const String& debugMessage = "") {
     flushSerial();
     if (command && len > 0) {
-        SerialDBG.printf("Sending command: 0x%08X", *(uint32_t*)command);
+        DEBUG(printf("Sending command: 0x%08X", *(uint32_t*)command));
         if (len > 4) {
-            SerialDBG.printf(" with args:");
+            DEBUG(printf(" with args:"));
             for (size_t i = 4; i < len; i += 4) {
-                SerialDBG.printf(" 0x%08X", *(uint32_t*)(command + i));
+                DEBUG(printf(" 0x%08X", *(uint32_t*)(command + i)));
             }
         }
-        SerialDBG.println();
-        Serial1.write(command, len);
-        Serial1.flush();
+        DEBUG(println());
+        SerialRP2040.write(command, len);
+        SerialRP2040.flush();
     }
     commandSentTime = millis();
 }
@@ -105,7 +105,7 @@ void handleFlasher() {
                 return;
             }
             resetInactivityTimer();
-            //Serial1.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
+            //SerialRP2040.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
             binFile = LittleFS.open("/firmware.bin", "r");
             if (!binFile) {
                 notifyClients("error:Fichier firmware.bin introuvable.");
@@ -125,16 +125,16 @@ void handleFlasher() {
             if (millis() - commandSentTime < BOOTLOADER_RESPONSE_DELAY) {
                 return;
             }
-            if (Serial1.available() >= 4) {
+            if (SerialRP2040.available() >= 4) {
                 uint32_t response;
-                Serial1.readBytes((uint8_t*)&response, 4);
+                SerialRP2040.readBytes((uint8_t*)&response, 4);
                 if (response != RSP_SYNC) {
                     notifyClients("error:Réponse de synchronisation inattendue.");
-                    SerialDBG.printf("Error: Unexpected SYNC response. Expected: 0x%08X, Received: 0x%08X\n", RSP_SYNC, response);
+                    DEBUG(printf("Error: Unexpected SYNC response. Expected: 0x%08X, Received: 0x%08X\n", RSP_SYNC, response));
                     flasherState = INIT;
                 } else {
                     notifyClients("log:Synchronisation réussie.");
-                    SerialDBG.printf("Response OK: 0x%08X\n", response);
+                    DEBUG(printf("Response OK: 0x%08X\n", response));
                     flasherState = IDLE; //une fois synchronisé, on attend le début du flashage
                     // Relâcher la broche BOOTLOADER_PIN
                     digitalWrite(BOOTLOADER_PIN, HIGH);
@@ -143,7 +143,7 @@ void handleFlasher() {
                 }
             } else if (millis() - stateStartTime > 1000) { // on se laisse 60 secondes pour la réponse
                  notifyClients("error:Timeout lors de l'attente de la réponse de synchronisation.");
-                 SerialDBG.println("Error: Timeout waiting for SYNC response.");
+                 DEBUG(println("Error: Timeout waiting for SYNC response."));
                  startFlashProcess(*webSocketPtr, INIT); // Recommencer l'initialisation
                  // TODO : passer en mode erreur après xx tentatives
             }
@@ -163,14 +163,14 @@ void handleFlasher() {
             if (millis() - commandSentTime < BOOTLOADER_RESPONSE_DELAY) {
                 return;
             }
-            if (Serial1.available() >= (4 + 5 * sizeof(uint32_t))) {
+            if (SerialRP2040.available() >= (4 + 5 * sizeof(uint32_t))) {
                 uint32_t response;
                 uint32_t infoData[5];
-                Serial1.readBytes((uint8_t*)&response, 4);
-                Serial1.readBytes((uint8_t*)&infoData, 5 * sizeof(uint32_t));
+                SerialRP2040.readBytes((uint8_t*)&response, 4);
+                SerialRP2040.readBytes((uint8_t*)&infoData, 5 * sizeof(uint32_t));
                 if (response != RSP_OK) {
                     notifyClients("error:Erreur lors de la récupération des informations sur la flash.");
-                    SerialDBG.printf("Error: Unexpected INFO response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response);
+                    DEBUG(printf("Error: Unexpected INFO response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response));
                     flasherState = ERROR;
                 } else {
                     eraseSize = infoData[2];
@@ -182,15 +182,15 @@ void handleFlasher() {
                                   ", Write Size: " + String(writeSize, HEX) + 
                                   ", Max Data Len: " + String(infoData[4], HEX));
                     
-                    SerialDBG.printf("Flash info: Flash Start: 0x%08X, Flash Size: 0x%08X, Erase Size: 0x%08X, Write Size: 0x%08X, Max Data Len: 0x%08X\n",
-                                    infoData[0], infoData[1], eraseSize, writeSize, infoData[4]);
+                    DEBUG(printf("Flash info: Flash Start: 0x%08X, Flash Size: 0x%08X, Erase Size: 0x%08X, Write Size: 0x%08X, Max Data Len: 0x%08X\n",
+                                    infoData[0], infoData[1], eraseSize, writeSize, infoData[4]));
                     flashStart = infoData[0];
                     currentEraseAddress = flashStart;
                     flasherState = ERASE_SECTOR;
                 }
             } else if (millis() - stateStartTime > 5000) {
                  notifyClients("error:Timeout lors de l'attente des informations sur la flash.");
-                 SerialDBG.println("Error: Timeout waiting for INFO response.");
+                 DEBUG(println("Error: Timeout waiting for INFO response."));
                  flasherState = ERROR;
             }
             break;
@@ -200,7 +200,7 @@ void handleFlasher() {
             if (currentEraseAddress >= (flashStart + fileSize)) {
                 resetInactivityTimer();
                 notifyClients("log:Effacement terminé.");
-                SerialDBG.println("Flash erase complete.");
+                DEBUG(println("Flash erase complete."));
                 currentFilePosition = 0;
                 lastProgress = 0;
                 flasherState = WRITE_BLOCK;
@@ -220,12 +220,12 @@ void handleFlasher() {
             if (millis() - commandSentTime < BOOTLOADER_RESPONSE_DELAY) {
                 return;
             }
-            if (Serial1.available() >= 4) {
+            if (SerialRP2040.available() >= 4) {
                 uint32_t response;
-                Serial1.readBytes((uint8_t*)&response, 4);
+                SerialRP2040.readBytes((uint8_t*)&response, 4);
                 if (response != RSP_OK) {
                     notifyClients(String("error:Erreur lors de l'effacement à l'adresse 0x") + String(currentEraseAddress, HEX));
-                    SerialDBG.printf("Error: Unexpected ERASE response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response);
+                    DEBUG(printf("Error: Unexpected ERASE response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response));
                     flasherState = ERROR;
                 } else {
                     currentEraseAddress += eraseSize;
@@ -234,12 +234,12 @@ void handleFlasher() {
                         lastProgress = progress;
                         notifyClients(String("log:Effacement en cours: ") + progress + "%");
                     }
-                    SerialDBG.printf("Erase block OK. Progress: %d%%\n", progress);
+                    DEBUG(printf("Erase block OK. Progress: %d%%\n", progress));
                     flasherState = ERASE_SECTOR;
                 }
             } else if (millis() - commandSentTime > 5000) {
                  notifyClients("error:Timeout lors de l'attente de la réponse de l'effacement.");
-                 SerialDBG.println("Error: Timeout waiting for ERASE response.");
+                 DEBUG(println("Error: Timeout waiting for ERASE response."));
                  flasherState = ERROR;
             }
             break;
@@ -266,10 +266,10 @@ void handleFlasher() {
             writeCmd[1] = flashStart + currentFilePosition;
             writeCmd[2] = towrite;
             
-            SerialDBG.printf("Sending WRITE command. Address: 0x%08X, Size: 0x%08X\n", writeCmd[1], writeCmd[2]);
-            Serial1.write((uint8_t*)&writeCmd, sizeof(writeCmd));
-            Serial1.write(filebuffer, towrite);
-            Serial1.flush();
+            DEBUG(printf("Sending WRITE command. Address: 0x%08X, Size: 0x%08X\n", writeCmd[1], writeCmd[2]));
+            SerialRP2040.write((uint8_t*)&writeCmd, sizeof(writeCmd));
+            SerialRP2040.write(filebuffer, towrite);
+            SerialRP2040.flush();
             
             currentFilePosition += towrite;
             commandSentTime = millis();
@@ -281,15 +281,15 @@ void handleFlasher() {
             if (millis() - commandSentTime < BOOTLOADER_RESPONSE_DELAY) {
                 return;
             }
-            if (Serial1.available() >= 8) {
+            if (SerialRP2040.available() >= 8) {
                 uint32_t response;
                 uint32_t crc;
                 
-                Serial1.readBytes((uint8_t*)&response, 4);
-                Serial1.readBytes((uint8_t*)&crc, 4);
+                SerialRP2040.readBytes((uint8_t*)&response, 4);
+                SerialRP2040.readBytes((uint8_t*)&crc, 4);
                 if (response != RSP_OK) {
                     notifyClients("error:Erreur lors de l'écriture du bloc.");
-                    SerialDBG.printf("Error: Unexpected WRITE response. Expected: 0x%08X, Received: 0x%08X with crc : 0x%08X\n", RSP_OK, response, crc);
+                    DEBUG(printf("Error: Unexpected WRITE response. Expected: 0x%08X, Received: 0x%08X with crc : 0x%08X\n", RSP_OK, response, crc));
                     flasherState = ERROR;
                 } else {
                     int progress = (currentFilePosition * 100) / fileSize;
@@ -297,12 +297,12 @@ void handleFlasher() {
                         lastProgress = progress;
                         notifyClients(String("log:Flashage en cours: ") + progress + "%");
                     }
-                    SerialDBG.printf("Write block OK. Progress: %d%%\n", progress);
+                    DEBUG(printf("Write block OK. Progress: %d%%\n", progress));
                     flasherState = WRITE_BLOCK;
                 }
             } else if (millis() - commandSentTime > 5000) {
                  notifyClients("error:Timeout lors de l'attente de la réponse de l'écriture.");
-                 SerialDBG.println("Error: Timeout waiting for WRITE response.");
+                 DEBUG(println("Error: Timeout waiting for WRITE response."));
                  flasherState = ERROR;
             }
             break;
@@ -336,21 +336,21 @@ void handleFlasher() {
             if (millis() - commandSentTime < BOOTLOADER_RESPONSE_DELAY) {
                 return;
             }
-            if (Serial1.available() >= 4) {
+            if (SerialRP2040.available() >= 4) {
                 uint32_t response;
-                Serial1.readBytes((uint8_t*)&response, 4);
+                SerialRP2040.readBytes((uint8_t*)&response, 4);
                 if (response != RSP_OK) {
                     notifyClients("error:Erreur lors du scellement.");
-                    SerialDBG.printf("Error: Unexpected SEAL response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response);
+                    DEBUG(printf("Error: Unexpected SEAL response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response));
                     flasherState = ERROR;
                 } else {
                     notifyClients("log:Scellement réussi.");
-                    SerialDBG.printf("Response OK: 0x%08X\n", response);
+                    DEBUG(printf("Response OK: 0x%08X\n", response));
                     flasherState = DONE;
                 }
             } else if (millis() - commandSentTime > 5000) {
                  notifyClients("error:Timeout lors de l'attente de la réponse du scellement.");
-                 SerialDBG.println("Error: Timeout waiting for SEAL response.");
+                 DEBUG(println("Error: Timeout waiting for SEAL response."));
                  flasherState = ERROR;
             }
             break;
