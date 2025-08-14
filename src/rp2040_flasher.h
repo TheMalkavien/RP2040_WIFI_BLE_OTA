@@ -17,7 +17,7 @@
 #define RSP_ERR (('E' << 0) | ('R' << 8) | ('R' << 16) | ('!' << 24))
 
 // Délai d'attente pour les réponses du bootloader (en ms)
-#define BOOTLOADER_RESPONSE_DELAY 100
+#define BOOTLOADER_RESPONSE_DELAY 10
 
 // Prototypes des fonctions
 void flashFirmware(AsyncWebSocket &ws); // Gardé pour la compatibilité, mais pas utilisé directement

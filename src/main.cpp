@@ -228,7 +228,7 @@ void blink_led() {
             }
             else
                 neopixelWrite(RGB_BUILTIN,0,0,0);
-        #elif
+        #else
             digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
         #endif
     }

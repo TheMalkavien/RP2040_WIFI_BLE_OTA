@@ -3,8 +3,6 @@
 #define SSID "ESP32-Uploader"
 #define PASSWORD "12345678"
 
-#define DBG_SERIAL_TX 21 // 43 for USB
-#define DBG_SERIAL_RX 20 // 44 for USB
 #define DBG_SERIAL_BAUD 115200
 
 
