@@ -16,7 +16,6 @@
 #define BOOTLOADER_PIN GPIO_NUM_3 // to GPIO22 of the RP2040
 #define INACTIVITY_TIMEOUT (1 * 60 * 1000)
 
-
 #ifndef RP2040_SERIAL_TX_PIN
 #define RP2040_SERIAL_TX_PIN TX // to the GPIO9 of the RP2040
 #endif
