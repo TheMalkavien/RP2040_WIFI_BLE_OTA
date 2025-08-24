@@ -13,6 +13,22 @@ bool rp2040BootloaderActive = false;
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
+void led_on() {
+    #ifdef RGB_BUILTIN
+        neopixelWrite(RGB_BUILTIN,RGB_BRIGHTNESS,RGB_BRIGHTNESS,RGB_BRIGHTNESS);
+    #else
+        digitalWrite(LED_BUILTIN, HIGH); // Allumer la LED
+    #endif
+}
+
+void led_off() {
+    #ifdef RGB_BUILTIN
+        neopixelWrite(RGB_BUILTIN,0,0,0);
+    #else
+        digitalWrite(LED_BUILTIN, LOW); // Éteindre la LED
+    #endif
+}
+
 void resetInactivityTimer() {
     noInterrupts(); // Désactiver les interruptions
     lastActivityTime = millis();
@@ -27,8 +43,8 @@ void notifyClients(const String& message) {
 void goToDeepSleep() {
     DEBUG(println("Entering deep sleep mode."));
     pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
-
-    delay(200); // très important
+    led_off();
+    delay(200);
     int level = digitalRead(BOOTLOADER_PIN);
     DEBUG(println(level ? "BOOTLOADER_PIN is HIGH, will wake up on LOW" : "BOOTLOADER_PIN is LOW, will wake up on HIGH"));
 
@@ -253,20 +269,15 @@ void blink_led() {
     static bool ledState = false;
 
     unsigned long currentMillis = millis();
-    if (currentMillis - lastBlinkTime >= 1000) { // 1 seconde
+    if (currentMillis - lastBlinkTime >= 1000)
+    {
         lastBlinkTime = currentMillis;
         ledState = !ledState; // Inverser l'état de la LED
-        #ifdef RGB_BUILTIN
-            if (ledState)
-            {
-                neopixelWrite(RGB_BUILTIN,RGB_BRIGHTNESS,RGB_BRIGHTNESS,RGB_BRIGHTNESS);
-                //lastBlinkTime -= 900; // Ajuster le temps pour éviter le clignotement trop lent
-            }
-            else
-                neopixelWrite(RGB_BUILTIN,0,0,0);
-        #else
-            digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
-        #endif
+        if (ledState) {
+            led_on();
+        } else {
+            led_off();
+        }
     }
 }
 
