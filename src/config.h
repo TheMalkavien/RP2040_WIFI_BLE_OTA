@@ -1,7 +1,7 @@
 #pragma once
 
-#define SSID "ESP32-Uploader"
-#define PASSWORD "12345678"
+#define MY_SSID "ESP32-Uploader"
+#define MY_PASSWORD "12345678"
 
 #define DBG_SERIAL_BAUD 115200
 

@@ -1,17 +1,15 @@
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <AsyncTCP.h>
 #include <LittleFS.h>
 #include "esp_sleep.h"
 #include "esp_ota_ops.h"
 #include "config.h"
-#include "rp2040_flasher.h" // Inclusion du nouveau module
+#include "rp2040_flasher.h"
+#include "uploader.h"
+#include "wifi_upload.h"
+#include "main.h"
 
-unsigned long lastActivityTime = 0;
+Uploader* uploader = 0;
 bool rp2040BootloaderActive = false;
-
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
+unsigned long lastActivityTime = 0;
 
 void led_on() {
     #ifdef RGB_BUILTIN
@@ -34,10 +32,6 @@ void resetInactivityTimer() {
     lastActivityTime = millis();
     interrupts(); // Réactiver les interruptions
     DEBUG(println("Activity detected, inactivity timer reset."));
-}
-
-void notifyClients(const String& message) {
-    ws.textAll(message);
 }
 
 void goToDeepSleep() {
@@ -76,75 +70,6 @@ void goToDeepSleep() {
     esp_deep_sleep_start();
 }
 
-
-void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-    resetInactivityTimer();
-    if (type == WS_EVT_CONNECT) {
-        DEBUG(printf("WebSocket client #%u connected\n", client->id()));
-
-        client->text("EVENT:MODE_UPLOADER");
-
-    } else if (type == WS_EVT_DISCONNECT) {
-        DEBUG(printf("WebSocket client #%u disconnected\n", client->id()));
-    } else if (type == WS_EVT_DATA) {
-        AwsFrameInfo *info = (AwsFrameInfo*)arg;
-        if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-            data[len] = 0;
-            
-            if (strcmp((char*)data, "CMD:PREPARE_FLASH") == 0) {
-                DEBUG(println("PREPARE_FLASH command received. Toggling pins to enter RP2040 bootloader."));
-                notifyClients("log:Commande reçue. Préparation au mode bootloader du RP2040...");
-                
-                // Mettre la broche BOOTLOADER_PIN à LOW pour activer le mode bootloader
-                digitalWrite(BOOTLOADER_PIN, LOW);
-                delay(10);
-                
-                // Activer le RESET du RP2040
-                digitalWrite(RESETRP2040_PIN, LOW);
-                delay(100);
-                digitalWrite(RESETRP2040_PIN, HIGH);
-                delay(100);
-                notifyClients("log:En attente de la réponse du RP2040...");
-                startFlashProcess(ws); // Appel de la nouvelle fonction pour démarrer la machine à états
-
-                notifyClients("EVENT:RP2040_BOOTLOADER_MODE");
-            }
-
-            if (strcmp((char*)data, "CMD:START_FLASH") == 0) {
-                 if (rp2040BootloaderActive) {
-                    // Relâcher la broche BOOTLOADER_PIN
-                    digitalWrite(BOOTLOADER_PIN, HIGH);
-                    notifyClients("log:Démarrage du processus de flashage...");
-                    startFlashProcess(ws, SEND_INFO_COMMAND); // Appel de la nouvelle fonction pour démarrer la machine à états
-                 } else {
-                    notifyClients("error:Le RP2040 n'est pas en mode bootloader.");
-                 }
-            }
-        }
-    }
-}
-
-void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    resetInactivityTimer();
-    static File binFile;
-    if (!index) {
-        notifyClients("log:Début du téléversement...");
-        binFile = LittleFS.open("/firmware.bin", "w");
-        if (!binFile) {
-            notifyClients("error:Impossible d'ouvrir le fichier sur l'ESP32.");
-            return;
-        }
-    }
-    if (len) {
-        binFile.write(data, len);
-    }
-    if (final) {
-        binFile.close();
-        notifyClients("EVENT:UPLOAD_COMPLETE");
-        notifyClients("log:Fichier reçu. Prêt à préparer le flash.");
-    }
-
-}
 
 void printWakeupReason() {
   esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
@@ -245,22 +170,12 @@ void setup() {
         DEBUG(println("LittleFS mount failed!"));
     }
 
-    WiFi.softAP(SSID, PASSWORD);
-    DEBUG(print("AP IP address: "));
-    DEBUG(println(WiFi.softAPIP()));
-
-    ws.onEvent(onWsEvent);
-    server.addHandler(&ws);
+    #ifdef USE_WIFI
+    uploader = new WifiUpload();
+    #endif
+    uploader->Setup();
 
 
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/index.html", "text/html");
-    });
-    server.on("/", HTTP_POST, [](AsyncWebServerRequest *request){
-        request->send(200);
-    }, handleUpload);
-
-    server.begin();
     DEBUG(println("Setup complete."));
 }
 
@@ -293,9 +208,7 @@ void loop() {
         DEBUG(flush());
         goToDeepSleep();
     }
-
     blink_led();
-
-    ws.cleanupClients();
+    uploader->loop();
     handleFlasher(); // Appel de la machine à états dans la boucle principale
 }

@@ -2,8 +2,9 @@
 
 #include <Arduino.h>
 #include <LittleFS.h>
+#ifdef USE_WIFI
 #include <ESPAsyncWebServer.h>
-
+#endif
 // Définitions pour le bootloader RP2040
 #define CMD_SYNC (('S' << 0) | ('Y' << 8) | ('N' << 16) | ('C' << 24))
 #define RSP_SYNC (('P' << 0) | ('I' << 8) | ('C' << 16) | ('O' << 24))
@@ -20,7 +21,6 @@
 #define BOOTLOADER_RESPONSE_DELAY 10
 
 // Prototypes des fonctions
-void flashFirmware(AsyncWebSocket &ws); // Gardé pour la compatibilité, mais pas utilisé directement
 void flushSerial();
 void sendCommandNonBlocking(const uint8_t* command, size_t len, const String& debugMessage);
 uint32_t calculateCrc32(const uint8_t* data, size_t length, uint32_t crc);
@@ -45,5 +45,5 @@ enum FlasherState {
 void resetInactivityTimer();
 extern bool rp2040BootloaderActive; // Indique si le RP2040 est en mode bootloader
 // Prototypes des fonctions pour le processus de flashage
-void startFlashProcess(AsyncWebSocket &ws, FlasherState fs = INIT);
+void startFlashProcess(FlasherState fs = INIT);
 void handleFlasher();

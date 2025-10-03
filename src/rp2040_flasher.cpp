@@ -1,14 +1,12 @@
 #include "rp2040_flasher.h"
 #include "config.h"
-
-// Définition de la fonction de notification pour le module
-extern void notifyClients(const String& message);
+#include "uploader.h"
 
 #define VTOR 0x10004000
 #define ALIGN_UP(val, align) (((val) + ((align) - 1)) & ~((align) - 1))
 // Variables globales pour le processus de flashage
 FlasherState flasherState = IDLE;
-AsyncWebSocket* webSocketPtr;
+
 File binFile;
 uint32_t fileSize = 0;
 uint8_t filebuffer[4096];
@@ -21,7 +19,7 @@ uint32_t writeSize = 0;
 uint32_t currentWriteOffset = 0;
 unsigned long commandSentTime = 0;
 int lastProgress = 0;
-
+extern Uploader* uploader;
 // Variables pour le calcul du CRC
 uint32_t calculatedCrc = 0;
 
@@ -87,8 +85,7 @@ uint32_t calculateCrc32FromFile(File& file) {
 }
 
 // Fonction pour initialiser le processus de flashage
-void startFlashProcess(AsyncWebSocket &ws, FlasherState fs) {
-    webSocketPtr = &ws;
+void startFlashProcess(FlasherState fs) {
     flasherState = fs;
     stateStartTime = millis();
     lastProgress = 0;
@@ -108,14 +105,14 @@ void handleFlasher() {
             //SerialRP2040.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
             binFile = LittleFS.open("/firmware.bin", "r");
             if (!binFile) {
-                notifyClients("error:Fichier firmware.bin introuvable.");
+                uploader->notifyClients("error:Fichier firmware.bin introuvable.");
                 flasherState = ERROR;
                 return;
             }
 
             fileSize = binFile.size();
             currentFilePosition = 0;
-            notifyClients("log:Synchronisation avec le bootloader du RP2040...");
+            uploader->notifyClients("log:Synchronisation avec le bootloader du RP2040...");
             uint32_t syncCmd = CMD_SYNC;
             sendCommandNonBlocking((uint8_t*)&syncCmd, sizeof(syncCmd));
             flasherState = WAIT_SYNC_RESPONSE;
@@ -129,29 +126,29 @@ void handleFlasher() {
                 uint32_t response;
                 SerialRP2040.readBytes((uint8_t*)&response, 4);
                 if (response != RSP_SYNC) {
-                    notifyClients("error:Réponse de synchronisation inattendue.");
+                    uploader->notifyClients("error:Réponse de synchronisation inattendue.");
                     DEBUG(printf("Error: Unexpected SYNC response. Expected: 0x%08X, Received: 0x%08X\n", RSP_SYNC, response));
                     flasherState = INIT;
                 } else {
-                    notifyClients("log:Synchronisation réussie.");
+                    uploader->notifyClients("log:Synchronisation réussie.");
                     DEBUG(printf("Response OK: 0x%08X\n", response));
                     flasherState = IDLE; //une fois synchronisé, on attend le début du flashage
                     // Relâcher la broche BOOTLOADER_PIN
                     digitalWrite(BOOTLOADER_PIN, HIGH);
                     rp2040BootloaderActive = true;
-                    notifyClients("EVENT:RP2040_SYNCED");
+                    uploader->notifyClients("EVENT:RP2040_SYNCED");
                 }
             } else if (millis() - stateStartTime > 1000) { // on se laisse 60 secondes pour la réponse
-                 notifyClients("error:Timeout lors de l'attente de la réponse de synchronisation.");
+                 uploader->notifyClients("error:Timeout lors de l'attente de la réponse de synchronisation.");
                  DEBUG(println("Error: Timeout waiting for SYNC response."));
-                 startFlashProcess(*webSocketPtr, INIT); // Recommencer l'initialisation
+                 startFlashProcess(INIT); // Recommencer l'initialisation
                  // TODO : passer en mode erreur après xx tentatives
             }
             break;
         }
 
         case SEND_INFO_COMMAND: {
-            notifyClients("log:Récupération des informations sur la flash...");
+            uploader->notifyClients("log:Récupération des informations sur la flash...");
             uint32_t infoCmd = CMD_INFO;
             sendCommandNonBlocking((uint8_t*)&infoCmd, sizeof(infoCmd));
             resetInactivityTimer();
@@ -169,14 +166,14 @@ void handleFlasher() {
                 SerialRP2040.readBytes((uint8_t*)&response, 4);
                 SerialRP2040.readBytes((uint8_t*)&infoData, 5 * sizeof(uint32_t));
                 if (response != RSP_OK) {
-                    notifyClients("error:Erreur lors de la récupération des informations sur la flash.");
+                    uploader->notifyClients("error:Erreur lors de la récupération des informations sur la flash.");
                     DEBUG(printf("Error: Unexpected INFO response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response));
                     flasherState = ERROR;
                 } else {
                     eraseSize = infoData[2];
                     writeSize = infoData[4];
                     
-                    notifyClients(String("log:Flash info: Flash Start: 0x") + String(infoData[0], HEX) + 
+                    uploader->notifyClients(String("log:Flash info: Flash Start: 0x") + String(infoData[0], HEX) +
                                   ", Flash Size: " + String(infoData[1], HEX) + 
                                   ", Erase Size: " + String(eraseSize, HEX) + 
                                   ", Write Size: " + String(writeSize, HEX) + 
@@ -189,7 +186,7 @@ void handleFlasher() {
                     flasherState = ERASE_SECTOR;
                 }
             } else if (millis() - stateStartTime > 5000) {
-                 notifyClients("error:Timeout lors de l'attente des informations sur la flash.");
+                 uploader->notifyClients("error:Timeout lors de l'attente des informations sur la flash.");
                  DEBUG(println("Error: Timeout waiting for INFO response."));
                  flasherState = ERROR;
             }
@@ -199,7 +196,7 @@ void handleFlasher() {
         case ERASE_SECTOR: {
             if (currentEraseAddress >= (flashStart + fileSize)) {
                 resetInactivityTimer();
-                notifyClients("log:Effacement terminé.");
+                uploader->notifyClients("log:Effacement terminé.");
                 DEBUG(println("Flash erase complete."));
                 currentFilePosition = 0;
                 lastProgress = 0;
@@ -224,7 +221,7 @@ void handleFlasher() {
                 uint32_t response;
                 SerialRP2040.readBytes((uint8_t*)&response, 4);
                 if (response != RSP_OK) {
-                    notifyClients(String("error:Erreur lors de l'effacement à l'adresse 0x") + String(currentEraseAddress, HEX));
+                    uploader->notifyClients(String("error:Erreur lors de l'effacement à l'adresse 0x") + String(currentEraseAddress, HEX));
                     DEBUG(printf("Error: Unexpected ERASE response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response));
                     flasherState = ERROR;
                 } else {
@@ -232,13 +229,13 @@ void handleFlasher() {
                     int progress = ((currentEraseAddress - flashStart) * 100) / fileSize;
                     if (progress > lastProgress) {
                         lastProgress = progress;
-                        notifyClients(String("log:Effacement en cours: ") + progress + "%");
+                        uploader->notifyClients(String("log:Effacement en cours: ") + progress + "%");
                     }
                     DEBUG(printf("Erase block OK. Progress: %d%%\n", progress));
                     flasherState = ERASE_SECTOR;
                 }
             } else if (millis() - commandSentTime > 5000) {
-                 notifyClients("error:Timeout lors de l'attente de la réponse de l'effacement.");
+                 uploader->notifyClients("error:Timeout lors de l'attente de la réponse de l'effacement.");
                  DEBUG(println("Error: Timeout waiting for ERASE response."));
                  flasherState = ERROR;
             }
@@ -256,7 +253,7 @@ void handleFlasher() {
             uint32_t towrite = r;
             if (r <= 0) 
             {
-                notifyClients("error:Erreur de lecture du fichier BIN.");
+                uploader->notifyClients("error:Erreur de lecture du fichier BIN.");
                 flasherState = ERROR;
                 return;
             }
@@ -288,20 +285,20 @@ void handleFlasher() {
                 SerialRP2040.readBytes((uint8_t*)&response, 4);
                 SerialRP2040.readBytes((uint8_t*)&crc, 4);
                 if (response != RSP_OK) {
-                    notifyClients("error:Erreur lors de l'écriture du bloc.");
+                    uploader->notifyClients("error:Erreur lors de l'écriture du bloc.");
                     DEBUG(printf("Error: Unexpected WRITE response. Expected: 0x%08X, Received: 0x%08X with crc : 0x%08X\n", RSP_OK, response, crc));
                     flasherState = ERROR;
                 } else {
                     int progress = (currentFilePosition * 100) / fileSize;
                     if (progress > lastProgress) {
                         lastProgress = progress;
-                        notifyClients(String("log:Flashage en cours: ") + progress + "%");
+                        uploader->notifyClients(String("log:Flashage en cours: ") + progress + "%");
                     }
                     DEBUG(printf("Write block OK. Progress: %d%%\n", progress));
                     flasherState = WRITE_BLOCK;
                 }
             } else if (millis() - commandSentTime > 5000) {
-                 notifyClients("error:Timeout lors de l'attente de la réponse de l'écriture.");
+                 uploader->notifyClients("error:Timeout lors de l'attente de la réponse de l'écriture.");
                  DEBUG(println("Error: Timeout waiting for WRITE response."));
                  flasherState = ERROR;
             }
@@ -309,18 +306,18 @@ void handleFlasher() {
         }
 
         case CALCULATE_CRC: {
-            notifyClients("log:Calcul du CRC du firmware...");
+            uploader->notifyClients("log:Calcul du CRC du firmware...");
             resetInactivityTimer();
             binFile.seek(0);
             calculatedCrc = calculateCrc32FromFile(binFile);
-            notifyClients(String("log:CRC calculé : 0x") + String(calculatedCrc, HEX));
+            uploader->notifyClients(String("log:CRC calculé : 0x") + String(calculatedCrc, HEX));
             flasherState = SEAL_FLASH;
             break;
         }
 
 
         case SEAL_FLASH: {
-            notifyClients("log:Scellement du firmware...");
+            uploader->notifyClients("log:Scellement du firmware...");
             uint32_t sealCmd[4];
             sealCmd[0] = CMD_SEAL;
             sealCmd[1] = flashStart;
@@ -340,16 +337,16 @@ void handleFlasher() {
                 uint32_t response;
                 SerialRP2040.readBytes((uint8_t*)&response, 4);
                 if (response != RSP_OK) {
-                    notifyClients("error:Erreur lors du scellement.");
+                    uploader->notifyClients("error:Erreur lors du scellement.");
                     DEBUG(printf("Error: Unexpected SEAL response. Expected: 0x%08X, Received: 0x%08X\n", RSP_OK, response));
                     flasherState = ERROR;
                 } else {
-                    notifyClients("log:Scellement réussi.");
+                    uploader->notifyClients("log:Scellement réussi.");
                     DEBUG(printf("Response OK: 0x%08X\n", response));
                     flasherState = DONE;
                 }
             } else if (millis() - commandSentTime > 5000) {
-                 notifyClients("error:Timeout lors de l'attente de la réponse du scellement.");
+                 uploader->notifyClients("error:Timeout lors de l'attente de la réponse du scellement.");
                  DEBUG(println("Error: Timeout waiting for SEAL response."));
                  flasherState = ERROR;
             }
@@ -357,8 +354,8 @@ void handleFlasher() {
         }
 
         case DONE:
-            notifyClients("log:Flashage terminé ! L'appareil va redémarrer.");
-            notifyClients("EVENT:FLASH_COMPLETE");
+            uploader->notifyClients("log:Flashage terminé ! L'appareil va redémarrer.");
+            uploader->notifyClients("EVENT:FLASH_COMPLETE");
             resetInactivityTimer();
             binFile.close();
             uint32_t goCmd[2];
