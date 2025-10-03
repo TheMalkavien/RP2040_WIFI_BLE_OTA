@@ -2,6 +2,7 @@
 
 #define MY_SSID "ESP32-Uploader"
 #define MY_PASSWORD "12345678"
+#define MY_BLE_NAME "ESP32-Uploader"   // <- ajouté
 
 #define DBG_SERIAL_BAUD 115200
 

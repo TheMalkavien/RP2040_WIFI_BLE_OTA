@@ -6,6 +6,8 @@
 #include "uploader.h"
 #include "wifi_upload.h"
 #include "main.h"
+#include "ble_upload.h"
+#include "multi_upload.h"
 
 Uploader* uploader = 0;
 bool rp2040BootloaderActive = false;
@@ -170,9 +172,26 @@ void setup() {
         DEBUG(println("LittleFS mount failed!"));
     }
 
+    Uploader* wifi = nullptr;
+    Uploader* ble  = nullptr;
+
     #ifdef USE_WIFI
-    uploader = new WifiUpload();
+      wifi = new WifiUpload();
     #endif
+    #ifdef USE_BLE
+      ble = new BleUpload();
+    #endif
+
+    if (wifi && ble) {
+      uploader = new MultiUpload(wifi, ble);
+    } else if (wifi) {
+      uploader = wifi;
+    } else if (ble) {
+      uploader = ble;
+    } else {
+      // Oui, si tu désactives tout, c’est le néant.
+      while (true) { DEBUG(println("Aucun transport activé.")); delay(1000); }
+    }
     uploader->Setup();
 
 
