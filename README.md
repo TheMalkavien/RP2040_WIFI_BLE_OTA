@@ -1,70 +1,159 @@
-# Flasheur WiFi pour RP2040 via ESP32
+# Flasheur WiFi & Bluetooth pour RP2040 via ESP32
 
-Ce projet transforme un ESP32 en un pont WiFi pour téléverser ("flasher") des firmwares sur un microcontrôleur RP2040 à distance, sans aucune connexion physique à un ordinateur. Tout est géré via une interface web simple et intuitive.
+Ce projet transforme un ESP32 en un pont **WiFi et Bluetooth** pour téléverser ("flasher") des firmwares sur un microcontrôleur RP2040 à distance, sans aucune connexion physique à un ordinateur.  
+La gestion se fait via une **interface web moderne et intuitive**, accessible aussi bien en WiFi qu’en Bluetooth.
+
+---
 
 ## ✨ Fonctionnalités
 
-* **Flashage sans fil** : Mettez à jour votre RP2040 via WiFi.
-* **Interface Web Intuitive** : Une page web simple pour gérer tout le processus.
-* **Glisser-Déposer** : Téléversez vos fichiers `.bin` facilement.
-* **Suivi en Temps Réel** : Barres de progression pour le téléversement et les étapes de flashage (effacement, écriture).
-* **Console de Statut** : Suivez les logs détaillés directement depuis l'interface.
-* **Mode Point d'Accès** : L'ESP32 crée son propre réseau WiFi pour une utilisation sur le terrain.
+* **Flashage sans fil** : Mettez à jour votre RP2040 via **WiFi ou Bluetooth**.  
+* **Nouvelle Interface Web** : Interface repensée, plus claire et réactive.  
+* **Glisser-Déposer** : Téléversez vos fichiers `.bin` simplement.  
+* **Suivi en Temps Réel** : Barres de progression pour l’upload et les étapes de flashage (effacement, écriture).  
+* **Console de Statut** : Logs détaillés directement depuis l’interface.  
+* **Mode Point d’Accès WiFi** : L’ESP32 peut créer son propre réseau WiFi pour une utilisation sur le terrain.  
+* **Connexion Bluetooth** : Utilisation simplifiée depuis un smartphone, sans réseau WiFi nécessaire.  
 
 ---
 
 ## ⚠️ Prérequis Indispensable
 
-Pour que ce flasheur fonctionne, le RP2040 **doit** avoir été flashé au préalable avec un bootloader spécifique qui sait communiquer avec l'ESP32.
+Pour que ce flasheur fonctionne, le RP2040 **doit** avoir été flashé au préalable avec un bootloader compatible avec la communication série via l’ESP32.  
 
-* **Bootloader requis :** [TheMalkavien/rp2040-serial-bootloader](https://github.com/TheMalkavien/rp2040-serial-bootloader)
-
-Veuillez suivre les instructions de ce dépôt pour installer le bootloader sur votre RP2040 avant de tenter d'utiliser ce flasheur WiFi. Sans ce bootloader, l'ESP32 ne pourra pas synchroniser et flasher le firmware.
+* **Bootloader requis :** [TheMalkavien/rp2040-serial-bootloader](https://github.com/TheMalkavien/rp2040-serial-bootloader)  
 
 ---
 
 ## 🔌 Guide de Branchement : ESP32 vers RP2040
 
-Pour que l'ESP32 puisse communiquer et contrôler le RP2040, des connexions physiques précises sont nécessaires. Assurez-vous que les deux cartes partagent une masse commune (GND).
+Assurez-vous que les deux cartes partagent une masse commune (GND).
 
-| Broche ESP32S3-zero | Broche ESP32S3-xiao seedstudio | Rôle | Vers la broche RP2040 |
-| :--- | :--- | :--- | :--- |
-| **GPIO 2** | **GPIO 2** | Contrôle du Reset (facultatif, conseillé de mettre un pulldown externe) | **RESET** |
-| **GPIO 3** | **GPIO 3** | Contrôle du mode Bootloader| **GPIO 22** |
-| **GPIO 7 (TX)** | **GPIO 43 (TX)** | Communication (Transmission) | **GPIO 8 (RX)** |
-| **GPIO 8 (RX)** | **GPIO 44 (RX)** | Communication (Réception) | **GPIO 9 (TX)** |
-
-> **Note importante :** La communication série est croisée. Le transmetteur (TX) de l'ESP32 doit être connecté au récepteur (RX) du RP2040, et vice-versa.
+| Broche ESP32S3-zero | Broche ESP32S3-xiao seedstudio | Rôle                          | Vers la broche RP2040 |
+|---------------------|--------------------------------|-------------------------------|------------------------|
+| **GPIO 2**          | **GPIO 2**                     | Contrôle du Reset (optionnel) | **RESET**              |
+| **GPIO 3**          | **GPIO 3**                     | Contrôle du mode Bootloader   | **GPIO 22**            |
+| **GPIO 7 (TX)**     | **GPIO 43 (TX)**               | Communication (Transmission)  | **GPIO 8 (RX)**        |
+| **GPIO 8 (RX)**     | **GPIO 44 (RX)**               | Communication (Réception)     | **GPIO 9 (TX)**        |
 
 ---
 
-## 🚀 Guide d'Utilisation : Flasher le Firmware
-
-Une fois le bootloader requis installé et les branchements effectués, suivez ces étapes pour téléverser un nouveau firmware.
+## 🚀 Guide d’Utilisation : Flasher le Firmware
 
 ### Étape 1 : Connexion au Flasheur
 
-1.  **Mettez sous tension** votre montage ESP32/RP2040.
-2.  Sur votre ordinateur ou smartphone, recherchez les réseaux Wi-Fi et connectez-vous au point d'accès créé par l'ESP32.
-    * **Nom du réseau (SSID) :** `ESP32-Uploader`
-    * **Mot de passe :** `12345678`
-3.  Ouvrez un navigateur web et rendez-vous à l'adresse `http://192.168.4.1`. Vous devriez voir l'interface du flasheur.
+**WiFi**  
+1. Allumez l’ESP32/RP2040.  
+2. Connectez votre appareil au réseau :  
+   * **SSID :** `ESP32-Uploader`  
+   * **Mot de passe :** `12345678`  
+3. Accédez à l’interface via : `http://192.168.4.1`  
+
+**Bluetooth**  
+1. Activez le Bluetooth.  
+2. Associez l’appareil **ESP32-Uploader**.  
+3. Utilisez un navigateur/app compatible WebSerial.  
+4. Accédez à l’interface.  
+
+---
 
 ### Étape 2 : Processus de Flashage
 
-1.  **Téléverser le firmware :**
-    * Cliquez sur la zone "Choisir ou glisser un fichier".
-    * Sélectionnez le fichier de firmware `.bin` que vous souhaitez installer.
-    * Cliquez sur le bouton **"1. Téléverser"**. Une barre de progression verte indiquera l'avancement.
-2.  **Préparer le RP2040 :**
-    * Une fois le téléversement terminé, le bouton **"2. Préparer le Flash"** devient cliquable.
-    * Cliquez dessus. L'ESP32 va mettre le RP2040 en mode bootloader et tenter de s'y synchroniser.
-3.  **Démarrer le Flashage :**
-    * Après une synchronisation réussie, une nouvelle section apparaît avec le bouton **"3. Démarrer le Flash"**.
-    * Cliquez sur ce bouton pour lancer l'opération. Les boutons seront désactivés pendant le processus.
-    * Une barre de progression bleue s'affichera, avec l'état actuel ("Effacement en cours...", "Flashage en cours...").
-4.  **Fin du processus :**
-    * Une fois le flashage terminé à 100%, un message de succès s'affichera.
-    * Le RP2040 redémarrera automatiquement avec le nouveau firmware. L'interface web se rechargera après quelques secondes, prête pour une nouvelle opération.
+1. **Téléverser le firmware** → Choisissez un `.bin`, cliquez sur **Téléverser**.  
+2. **Préparer le RP2040** → bouton **Préparer le Flash**.  
+3. **Démarrer le Flashage** → bouton **Démarrer le Flash**.  
+4. **Fin** → succès affiché, redémarrage auto du RP2040.  
 
-Vous pouvez suivre toutes ces étapes et les messages de débogage dans la console en bas de la page.
+---
+
+## 📦 Exemple d’Utilisation
+
+- Mise à jour via smartphone en Bluetooth.  
+- Flashage WiFi sans câble en atelier.  
+
+---
+
+## 📜 Licence
+
+MIT – libre à vous de l’utiliser, modifier et améliorer.
+
+---
+
+# WiFi & Bluetooth Flasher for RP2040 via ESP32
+
+This project turns an ESP32 into a **WiFi and Bluetooth bridge** to remotely flash firmware on an RP2040 microcontroller, without any physical connection to a computer.  
+Management is done through a **modern and intuitive web interface**, available over both WiFi and Bluetooth.
+
+---
+
+## ✨ Features
+
+* **Wireless flashing**: Update your RP2040 over **WiFi or Bluetooth**.  
+* **New Web Interface**: Cleaner, more responsive design.  
+* **Drag & Drop**: Upload your `.bin` files easily.  
+* **Real-Time Progress**: Progress bars for upload, erase, and write steps.  
+* **Status Console**: Detailed logs directly in the interface.  
+* **WiFi Access Point Mode**: ESP32 creates its own network for offline use.  
+* **Bluetooth Connection**: Easy flashing from a smartphone without WiFi.  
+
+---
+
+## ⚠️ Requirements
+
+The RP2040 **must** be pre-flashed with a specific bootloader compatible with ESP32 serial communication.  
+
+* **Required bootloader:** [TheMalkavien/rp2040-serial-bootloader](https://github.com/TheMalkavien/rp2040-serial-bootloader)  
+
+---
+
+## 🔌 Wiring Guide: ESP32 to RP2040
+
+Make sure both boards share a common ground (GND).
+
+| ESP32S3-zero Pin    | ESP32S3-xiao seedstudio Pin | Function                     | RP2040 Pin |
+|---------------------|-----------------------------|------------------------------|------------|
+| **GPIO 2**          | **GPIO 2**                  | Reset Control (optional)     | **RESET**  |
+| **GPIO 3**          | **GPIO 3**                  | Bootloader Mode Control      | **GPIO 22**|
+| **GPIO 7 (TX)**     | **GPIO 43 (TX)**            | Communication (Transmit)     | **GPIO 8 (RX)** |
+| **GPIO 8 (RX)**     | **GPIO 44 (RX)**            | Communication (Receive)      | **GPIO 9 (TX)** |
+
+---
+
+## 🚀 Usage Guide: Flashing Firmware
+
+### Step 1: Connect to the Flasher
+
+**WiFi**  
+1. Power on ESP32/RP2040.  
+2. Connect your device to:  
+   * **SSID:** `ESP32-Uploader`  
+   * **Password:** `12345678`  
+3. Open browser at: `http://192.168.4.1`  
+
+**Bluetooth**  
+1. Enable Bluetooth.  
+2. Pair with **ESP32-Uploader**.  
+3. Use a WebSerial-compatible browser/app.  
+4. Access the flasher interface.  
+
+---
+
+### Step 2: Flashing Process
+
+1. **Upload firmware** → choose `.bin`, click **Upload**.  
+2. **Prepare RP2040** → click **Prepare Flash**.  
+3. **Start Flashing** → click **Start Flash**.  
+4. **Finish** → success message, RP2040 auto-reboots.  
+
+---
+
+## 📦 Example Use Cases
+
+- Quick updates in the field via Bluetooth on a phone.  
+- Workshop WiFi flashing without plugging boards in.  
+
+---
+
+## 📜 License
+
+MIT – free to use, modify, and improve.
