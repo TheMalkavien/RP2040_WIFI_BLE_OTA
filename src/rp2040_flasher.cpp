@@ -85,10 +85,12 @@ uint32_t calculateCrc32FromFile(File& file) {
 }
 
 // Fonction pour initialiser le processus de flashage
-void startFlashProcess(FlasherState fs) {
+void startFlashProcess(FlasherState fs, bool resetInactivity) {
     flasherState = fs;
     stateStartTime = millis();
     lastProgress = 0;
+    if (resetInactivity)
+        resetInactivityTimer();
 }
 
 // Machine à états pour le flashage non bloquant
@@ -101,7 +103,6 @@ void handleFlasher() {
             if (millis() - stateStartTime < 1000) {
                 return;
             }
-            resetInactivityTimer();
             //SerialRP2040.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
             binFile = LittleFS.open("/firmware.bin", "r");
             if (!binFile) {
@@ -141,7 +142,7 @@ void handleFlasher() {
             } else if (millis() - stateStartTime > 1000) { // on se laisse 60 secondes pour la réponse
                  uploader->notifyClients("error:Timeout lors de l'attente de la réponse de synchronisation.");
                  DEBUG(println("Error: Timeout waiting for SYNC response."));
-                 startFlashProcess(INIT); // Recommencer l'initialisation
+                 startFlashProcess(INIT, false); // Recommencer l'initialisation
                  // TODO : passer en mode erreur après xx tentatives
             }
             break;
