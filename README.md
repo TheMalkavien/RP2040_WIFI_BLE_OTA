@@ -53,7 +53,7 @@ Assurez-vous que les deux cartes partagent une masse commune (GND).
 1. Activez le Bluetooth.  
 2. Associez l’appareil **ESP32-Uploader**.  
 3. Utilisez un navigateur/app compatible WebSerial.  
-4. Accédez à l’interface via : https://themalkavien.github.io/RP2040_WIFI_OTA/data/index.html
+4. Accédez à l’interface via : [https://themalkavien.github.io/RP2040_WIFI_OTA/data/index.html](https://themalkavien.github.io/RP2040_WIFI_BLE_OTA/data/index.html)
 
 ---
 
@@ -134,7 +134,7 @@ Make sure both boards share a common ground (GND).
 1. Enable Bluetooth.  
 2. Pair with **ESP32-Uploader**.  
 3. Use a WebSerial-compatible browser/app.  
-4. Access the flasher interface at: https://themalkavien.github.io/RP2040_WIFI_OTA/data/index.html
+4. Access the flasher interface at: [https://themalkavien.github.io/RP2040_WIFI_OTA/data/index.html](https://themalkavien.github.io/RP2040_WIFI_BLE_OTA/data/index.html)
 
 ---
 
