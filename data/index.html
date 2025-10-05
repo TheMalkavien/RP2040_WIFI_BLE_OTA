@@ -39,10 +39,17 @@ input[type=file]{display:none}
 #status-container{margin-top:2rem;text-align:left;background-color:#f8f9fa;padding:1rem;border-radius:8px;min-height:100px;overflow-y:auto;max-height:220px;border:1px solid var(--border-color);font-family:'SF Mono','Courier New',Courier,monospace;font-size:.85rem;white-space:pre-wrap;word-wrap:break-word}
 .status-log{color:var(--dark-gray)} .status-success{color:var(--success-color)} .status-error{color:var(--danger-color);font-weight:bold}
 .hidden{display:none}
+/* Top action bar */
+.top-actions{position:absolute; top:12px; right:12px; display:flex; gap:.5rem}
+.top-actions .btn{padding:.45rem .9rem; font-size:.9rem}
 </style>
 </head>
 <body>
-<div class="container">
+ <div class="container" style="position:relative">
+   <div class="top-actions">
+   <button id="btn-reboot-rp2040" class="btn btn-danger" type="button" title="Reboot du RP2040">Reboot RP2040</button>
+   <button id="btn-reboot-esp32" class="btn btn-danger" type="button" title="Reboot de l'ESP32">Reboot ESP32</button>
+ </div>
   <h1 id="main-title">Flasheur de Firmware</h1>
   <p id="main-subtitle">Étape 1: Choisissez un fichier <code>.bin</code> à téléverser.</p>
 
@@ -378,6 +385,19 @@ async function sendCommand(cmd) {
     await ctrlChar.writeValue(new TextEncoder().encode(cmd), true);
   }
 }
+
+/* ===== Boutons reboot ===== */
+const btnRebootRP = document.getElementById('btn-reboot-rp2040');
+const btnRebootESP = document.getElementById('btn-reboot-esp32');
+btnRebootRP.addEventListener('click', async () => {
+  addStatus("log:Reboot RP2040 demandé.");
+  await sendCommand('CMD:REBOOT_RP2040');
+});
+btnRebootESP.addEventListener('click', async () => {
+  addStatus("log:Reboot ESP32 demandé.");
+  await sendCommand('CMD:REBOOT_ESP32');
+});
+
 
 /* ===== Formulaire ===== */
 form.addEventListener('submit', async (e) => {

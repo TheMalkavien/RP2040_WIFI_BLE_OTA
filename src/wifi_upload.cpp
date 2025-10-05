@@ -50,7 +50,25 @@ int onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType
         AwsFrameInfo *info = (AwsFrameInfo*)arg;
         if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
             data[len] = 0;
-            
+            // Reboot RP2040: simple pulse sur la broche reset du RP2040
+            if (strcmp((char*)data, "CMD:REBOOT_RP2040") == 0) {
+                uploader->notifyClients("log:Reboot RP2040...");
+                digitalWrite(RESETRP2040_PIN, LOW);
+                delay(100);
+                digitalWrite(RESETRP2040_PIN, HIGH);
+                delay(100);
+                uploader->notifyClients("success:RP2040 redémarré.");
+                return 0;
+            }
+
+            // Reboot ESP32: redémarre l'hôte
+            if (strcmp((char*)data, "CMD:REBOOT_ESP32") == 0) {
+                uploader->notifyClients("log:Reboot ESP32...");
+                delay(50);
+                ESP.restart();
+                return 0; // ne sera probablement jamais atteint
+            }
+
             if (strcmp((char*)data, "CMD:PREPARE_FLASH") == 0) {
                 DEBUG(println("PREPARE_FLASH command received. Toggling pins to enter RP2040 bootloader."));
                 uploader->notifyClients("log:Commande reçue. Préparation au mode bootloader du RP2040...");

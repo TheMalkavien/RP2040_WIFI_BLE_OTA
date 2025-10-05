@@ -146,6 +146,21 @@ void BleUpload::onDataChunk(const uint8_t* data, size_t len) {
 
 void BleUpload::handleCtrlCommand(const std::string& s) {
   resetInactivityTimer();
+  if (s == "CMD:REBOOT_RP2040") {
+    notifyClients("log:Reboot RP2040 (BLE)...");
+    digitalWrite(RESETRP2040_PIN, LOW);
+    delay(100);
+    digitalWrite(RESETRP2040_PIN, HIGH);
+    delay(100);
+    notifyClients("success:RP2040 redémarré.");
+    return;
+  }
+  if (s == "CMD:REBOOT_ESP32") {
+    notifyClients("log:Reboot ESP32 (BLE)...");
+    delay(50);
+    ESP.restart();
+    return;
+  }
   if (s.rfind("START_UPLOAD:", 0) == 0) {
     size_t total = strtoul(s.c_str() + strlen("START_UPLOAD:"), nullptr, 10);
     beginUpload(total);
