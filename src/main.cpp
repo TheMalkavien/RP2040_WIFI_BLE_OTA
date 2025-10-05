@@ -84,8 +84,12 @@ void goToDeepSleep() {
   pinMode(RESETRP2040_PIN, INPUT);
   #ifdef HAS_RTC_GPIO_ISOLATE
     // Isoler uniquement si disponible et si ces GPIO sont bien des RTC IO
-    rtc_gpio_isolate((gpio_num_t)2);
-    rtc_gpio_isolate((gpio_num_t)3);
+    #ifdef rtc_gpio_isolate
+        rtc_gpio_isolate((gpio_num_t)2);
+        rtc_gpio_isolate((gpio_num_t)3);
+    #else
+        DEBUG(println("rtc_gpio_isolate is not available in this SDK."));
+    #endif
   #endif
 
     esp_deep_sleep_start();

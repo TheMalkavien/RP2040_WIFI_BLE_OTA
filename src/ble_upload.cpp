@@ -41,15 +41,8 @@ BleUpload::BleUpload() { gBle = this; }
 void BleUpload::Setup() {
   NimBLEDevice::init(MY_BLE_NAME);
 
-  #if defined(ESP_PWR_LVL_P9)
-    NimBLEDevice::setPower(ESP_PWR_LVL_P9);
-  #elif defined(ESP_PWR_LVL_P7)
-    NimBLEDevice::setPower(ESP_PWR_LVL_P7);
-  #elif defined(ESP_PWR_LVL_P3)
-    NimBLEDevice::setPower(ESP_PWR_LVL_P3);
-  #else
-    NimBLEDevice::setPower(ESP_PWR_LVL_N0);
-  #endif
+  NimBLEDevice::setPower(ESP_PWR_LVL_P21);
+
 
   NimBLEDevice::setMTU(517);
 
@@ -135,9 +128,11 @@ void BleUpload::onDataChunk(const uint8_t* data, size_t len) {
   received += len;
 
   if (expectedSize > 0) {
+
     int p = (int)((received * 100ull) / expectedSize);
     if (p != lastProgressPct) {
       notifyClients(String("log:Téléversement en cours: ") + p + "%");
+      //notifyClients(String("log:act : ") + received + String("total : ") + expectedSize);
       lastProgressPct = p;
     }
     if (received >= expectedSize) endUpload();
