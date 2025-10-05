@@ -54,7 +54,8 @@ void BleUpload::Setup() {
   NimBLEDevice::setMTU(517);
 
   server = NimBLEDevice::createServer();
-  server->setCallbacks(new ServerCallbacks());
+  auto *cbs = new ServerCallbacks();
+  server->setCallbacks(cbs);
 
   service = server->createService(FW_SERVICE_UUID);
 
@@ -76,10 +77,13 @@ void BleUpload::Setup() {
   );
 
   service->start();
-  NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+  adv = NimBLEDevice::getAdvertising();
   adv->addServiceUUID(FW_SERVICE_UUID);
   adv->setScanResponse(true);
+  adv->setMinInterval(1600);                  // 1s attention l'unité est 0.625ms
+  adv->setMaxInterval(3200);                  // 2s
   adv->start();
+  advRunning = true;
 
   notifyClients("log:BLE prêt. Publicité en cours.");
 }
@@ -107,6 +111,7 @@ void BleUpload::beginUpload(size_t total) {
     return;
   }
   notifyClients("log:Début du téléversement BLE...");
+  NimBLEDevice::setMTU(517);
 }
 
 void BleUpload::endUpload() {
@@ -116,6 +121,7 @@ void BleUpload::endUpload() {
     lastProgressPct = -1;
     notifyClients("EVENT:UPLOAD_COMPLETE");
     notifyClients("log:Fichier reçu (BLE). Prêt à préparer le flash.");
+    NimBLEDevice::setMTU(185);
   }
 }
 

@@ -19,12 +19,17 @@ class BleUpload : public Uploader {
     void Setup() override;
     void notifyClients(const String &message) override;
     void loop() override;
+    bool hasClient() const { return clientConnected; }
+    void setClientConnected(bool v) { clientConnected = v; }
 
-    // <<< DEVIENT PUBLIC >>>
     void handleCtrlCommand(const std::string& s);
     void onDataChunk(const uint8_t* data, size_t len);
 
   private:
+    bool clientConnected = false;
+    unsigned long lastAdvToggle = 0;
+    bool advRunning = false;
+    NimBLEAdvertising* adv = nullptr;
     NimBLEServer* server = nullptr;
     NimBLEService* service = nullptr;
     NimBLECharacteristic* ctrlChar = nullptr;

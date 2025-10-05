@@ -8,6 +8,17 @@
 #include "main.h"
 #include "ble_upload.h"
 #include "multi_upload.h"
+#if __has_include(<driver/rtc_io.h>)
+#include <driver/rtc_io.h>
+#define HAS_RTC_GPIO_ISOLATE 1
+#endif
+extern "C" {
+  #include "esp_wifi.h"
+  #include "esp_bt.h"
+  #include "esp_pm.h"
+  #include "esp_system.h"
+#include <esp32/pm.h>
+}
 
 Uploader* uploader = 0;
 bool rp2040BootloaderActive = false;
@@ -68,6 +79,14 @@ void goToDeepSleep() {
 #endif
 
     // --- Fin du code spécifique à l'architecture ---
+  // Neutraliser les lignes vers le RP2040 pour éviter les fuites
+  pinMode(BOOTLOADER_PIN, INPUT);
+  pinMode(RESETRP2040_PIN, INPUT);
+  #ifdef HAS_RTC_GPIO_ISOLATE
+    // Isoler uniquement si disponible et si ces GPIO sont bien des RTC IO
+    rtc_gpio_isolate((gpio_num_t)2);
+    rtc_gpio_isolate((gpio_num_t)3);
+  #endif
 
     esp_deep_sleep_start();
 }
@@ -139,8 +158,17 @@ void printWakeupReason() {
   }
 }
 
+inline void enable_pm_light_sleep() {
+  esp_pm_config_esp32_t cfg{};
+  // Fréquences S3 typiques: 80/240 MHz. Idle à 80, perf à 240 si tu compiles en dynfreq.
+  cfg.max_freq_mhz = 80;   // baisse plafond si possible
+  cfg.light_sleep_enable = true;
+  esp_pm_configure(&cfg);
+}
+
 void setup() {
     setCpuFrequencyMhz(80);  // 80 MHz semble être le plancher stable pour 921600
+    enable_pm_light_sleep();
     // Initialisation de l'UART pour le débogage
 
     SerialDBG.begin(DBG_SERIAL_BAUD);
@@ -188,6 +216,8 @@ void setup() {
       uploader = wifi;
     } else if (ble) {
       uploader = ble;
+      esp_wifi_stop();
+      esp_wifi_deinit();
     } else {
       // Oui, si tu désactives tout, c’est le néant.
       while (true) { DEBUG(println("Aucun transport activé.")); delay(1000); }
