@@ -11,8 +11,15 @@
   --border-color:#dee2e6; --border-radius:12px; --box-shadow:0 6px 20px rgba(0,0,0,0.08);
 }
 html{box-sizing:border-box}*,*:before,*:after{box-sizing:inherit}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background-color:var(--light-gray);margin:0;padding:1rem;color:var(--text-color)}
-.container{background-color:var(--white);padding:2rem 2.5rem;border-radius:var(--border-radius);box-shadow:var(--box-shadow);text-align:center;width:100%;max-width:550px;transition:all .3s ease}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  display:flex;justify-content:center;align-items:center;min-height:100vh;
+  background-color:var(--light-gray);margin:0;padding:1rem;color:var(--text-color)
+}
+.container{
+  background-color:var(--white);padding:2rem 2.5rem;border-radius:var(--border-radius);
+  box-shadow:var(--box-shadow);text-align:center;width:100%;max-width:550px;transition:all .3s ease
+}
 h1{margin:0 0 .5rem;font-size:1.75rem}
 p{color:var(--dark-gray);margin-bottom:2rem;line-height:1.6}
 .mode-toggle{display:flex;gap:.5rem;justify-content:center;margin-bottom:1rem;flex-wrap:wrap}
@@ -39,63 +46,78 @@ input[type=file]{display:none}
 #status-container{margin-top:2rem;text-align:left;background-color:#f8f9fa;padding:1rem;border-radius:8px;min-height:100px;overflow-y:auto;max-height:220px;border:1px solid var(--border-color);font-family:'SF Mono','Courier New',Courier,monospace;font-size:.85rem;white-space:pre-wrap;word-wrap:break-word}
 .status-log{color:var(--dark-gray)} .status-success{color:var(--success-color)} .status-error{color:var(--danger-color);font-weight:bold}
 .hidden{display:none}
-/* Top action bar */
-.top-actions{position:absolute; top:12px; right:12px; display:flex; gap:.5rem}
-.top-actions .btn{padding:.45rem .9rem; font-size:.9rem}
+
+/* Boutons reboot en bas */
+.bottom-actions {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--dark-gray);
+}
+.bottom-actions .btn {
+  background-color: #b94a48; /* rouge adouci */
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
 </style>
 </head>
 <body>
- <div class="container" style="position:relative">
-   <div class="top-actions">
-   <button id="btn-reboot-rp2040" class="btn btn-danger" type="button" title="Reboot du RP2040">Reboot RP2040</button>
-   <button id="btn-reboot-esp32" class="btn btn-danger" type="button" title="Reboot de l'ESP32">Reboot ESP32</button>
- </div>
-  <h1 id="main-title">Flasheur de Firmware</h1>
-  <p id="main-subtitle">Étape 1: Choisissez un fichier <code>.bin</code> à téléverser.</p>
+  <div class="container">
+    <h1 id="main-title">Flasheur de Firmware</h1>
+    <p id="main-subtitle">Étape 1: Choisissez un fichier <code>.bin</code> à téléverser.</p>
 
-  <div class="mode-toggle">
-    <button id="mode-wifi" class="toggle active" type="button">Wi-Fi</button>
-    <button id="mode-ble" class="toggle" type="button">Bluetooth</button>
-    <button id="ble-connect-btn" class="btn btn-primary hidden" type="button">Se connecter en Bluetooth</button>
-  </div>
-
-  <form id="upload-form" novalidate>
-    <label for="file-input" class="file-input-wrapper">
-      <span class="file-label">
-        Choisir ou glisser un fichier
-      </span>
-      <div id="file-name">Aucun fichier sélectionné</div>
-    </label>
-    <input type="file" id="file-input" name="firmware" accept=".bin" required>
-
-    <div class="progress-wrapper" id="upload-progress-wrapper" style="display:none;">
-      <div class="progress-container">
-        <div class="progress-bar" id="upload-progress-bar">0%</div>
-      </div>
-      <div class="progress-label" id="upload-progress-label"></div>
+    <div class="mode-toggle">
+      <button id="mode-wifi" class="toggle active" type="button">Wi-Fi</button>
+      <button id="mode-ble" class="toggle" type="button">Bluetooth</button>
+      <button id="ble-connect-btn" class="btn btn-primary hidden" type="button">Se connecter en Bluetooth</button>
     </div>
 
-    <div class="button-group">
-      <input type="submit" id="upload-btn" value="1. Téléverser" class="btn btn-primary" disabled>
-      <button type="button" id="prepare-flash-btn" class="btn btn-success" disabled>2. Préparer le Flash</button>
-    </div>
+    <form id="upload-form" novalidate>
+      <label for="file-input" class="file-input-wrapper">
+        <span class="file-label">Choisir ou glisser un fichier</span>
+        <div id="file-name">Aucun fichier sélectionné</div>
+      </label>
+      <input type="file" id="file-input" name="firmware" accept=".bin" required>
 
-    <div id="flash-section" style="display:none; margin-top:1rem;">
-      <div class="button-group">
-        <button type="button" id="start-flash-btn" class="btn btn-primary">3. Démarrer le Flash</button>
-        <button type="button" id="cancel-flash-btn" class="btn btn-danger">Annuler</button>
-      </div>
-      <div class="progress-wrapper" id="flash-progress-wrapper" style="display:none; margin-top:1.5rem;">
+      <div class="progress-wrapper" id="upload-progress-wrapper" style="display:none;">
         <div class="progress-container">
-          <div class="progress-bar" id="flash-progress-bar">0%</div>
+          <div class="progress-bar" id="upload-progress-bar">0%</div>
         </div>
-        <div class="progress-label" id="flash-progress-label"></div>
+        <div class="progress-label" id="upload-progress-label"></div>
+      </div>
+
+      <div class="button-group">
+        <input type="submit" id="upload-btn" value="1. Téléverser" class="btn btn-primary" disabled>
+        <button type="button" id="prepare-flash-btn" class="btn btn-success" disabled>2. Préparer le Flash</button>
+      </div>
+
+      <div id="flash-section" style="display:none; margin-top:1rem;">
+        <div class="button-group">
+          <button type="button" id="start-flash-btn" class="btn btn-primary">3. Démarrer le Flash</button>
+          <button type="button" id="cancel-flash-btn" class="btn btn-danger">Annuler</button>
+        </div>
+        <div class="progress-wrapper" id="flash-progress-wrapper" style="display:none; margin-top:1.5rem;">
+          <div class="progress-container">
+            <div class="progress-bar" id="flash-progress-bar">0%</div>
+          </div>
+          <div class="progress-label" id="flash-progress-label"></div>
+        </div>
+      </div>
+    </form>
+
+    <div id="status-container"></div>
+
+    <div class="bottom-actions">
+      <div>Non nécessaire, mais on ne sait jamais :</div>
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; justify-content:center;">
+        <button id="btn-reboot-rp2040" class="btn" type="button" title="Reboot du RP2040">Reboot RP2040</button>
+        <button id="btn-reboot-esp32" class="btn" type="button" title="Reboot de l'ESP32">Reboot ESP32</button>
       </div>
     </div>
-  </form>
-
-  <div id="status-container"></div>
-</div>
+  </div>
 
 <script>
 /* ===== Références DOM ===== */
@@ -124,6 +146,10 @@ const flashProgressLabel = document.getElementById('flash-progress-label');
 const modeWifiBtn = document.getElementById('mode-wifi');
 const modeBleBtn = document.getElementById('mode-ble');
 const bleConnectBtn = document.getElementById('ble-connect-btn');
+
+/* ===== Boutons reboot ===== */
+const btnRebootRP = document.getElementById('btn-reboot-rp2040');
+const btnRebootESP = document.getElementById('btn-reboot-esp32');
 
 /* ===== État global ===== */
 let transportMode = 'wifi';         // 'wifi' | 'ble'
@@ -282,7 +308,7 @@ function handleDeviceMessage(message) {
         break;
     }
   } else {
-    // Progression flash
+    // Progression flash (logs type "Effacement en cours: X", "Flashage en cours: X")
     const mFlash = message.match(/(Effacement|Flashage) en cours: (\d+)/);
     if (mFlash) {
       const progress = parseInt(mFlash[2], 10);
@@ -291,7 +317,7 @@ function handleDeviceMessage(message) {
       updateProgressBar(flashProgressBar, progress);
     }
 
-    // Progression upload (UNIQUEMENT BLE, poussée par le device)
+    // Progression upload (BLE)
     if (transportMode === 'ble') {
       const mBleUp = message.match(/Téléversement en cours:\s*(\d+)/i);
       if (mBleUp) {
@@ -347,7 +373,7 @@ async function uploadOverWifi(file) {
   });
 }
 
-/* ===== Upload BLE (barre pilotée par notifs device) ===== */
+/* ===== Upload BLE ===== */
 async function uploadOverBle(file) {
   if (!ctrlChar || !dataChar) throw new Error('BLE non connecté');
   addStatus("log:Téléversement en cours (BLE)...");
@@ -359,7 +385,7 @@ async function uploadOverBle(file) {
   // 1) Annonce la taille
   await ctrlChar.writeValue(new TextEncoder().encode(`START_UPLOAD:${file.size}`), true);
 
-  // 2) Envoi par chunks (pas de mise à jour barre ici)
+  // 2) Envoi par chunks
   const CHUNK = 256; // ajuste à 180 si MTU capricieux
   const buf = await file.arrayBuffer();
   const u8 = new Uint8Array(buf);
@@ -386,9 +412,7 @@ async function sendCommand(cmd) {
   }
 }
 
-/* ===== Boutons reboot ===== */
-const btnRebootRP = document.getElementById('btn-reboot-rp2040');
-const btnRebootESP = document.getElementById('btn-reboot-esp32');
+/* ===== Boutons reboot (listeners) ===== */
 btnRebootRP.addEventListener('click', async () => {
   addStatus("log:Reboot RP2040 demandé.");
   await sendCommand('CMD:REBOOT_RP2040');
@@ -397,7 +421,6 @@ btnRebootESP.addEventListener('click', async () => {
   addStatus("log:Reboot ESP32 demandé.");
   await sendCommand('CMD:REBOOT_ESP32');
 });
-
 
 /* ===== Formulaire ===== */
 form.addEventListener('submit', async (e) => {
@@ -413,6 +436,7 @@ form.addEventListener('submit', async (e) => {
     }
   } catch (err) {
     addStatus("error:Échec upload: " + err);
+    return;
   }
 });
 
