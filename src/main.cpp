@@ -19,6 +19,7 @@ extern "C" {
   #include "esp_system.h"
 #include <esp32/pm.h>
 }
+#include "ota_from_spiffs.h"
 
 Uploader* uploader = 0;
 bool rp2040BootloaderActive = false;
@@ -171,6 +172,16 @@ void setup() {
     delay(500); // Attendre que l'UART soit prête
     printWakeupReason();
 
+      // Valider l'image si on est en PENDING_VERIFY
+    ota_validate_running_image([](){
+      // Metre ici un check simple: init FS/BLE, ping RP2040, etc.
+      // Retourne true si tout va bien, sinon rollback automatique.
+      DEBUG(println("OTA Reussie !"));
+      return true;
+    });
+    // Sauf que avec le SDK Arduino, on n'a pas de mode verify, donc on peut le faire à la main, et forcer un rollback. // FIXME un jour
+
+    printOtaInfo();
     // Configuration des broches pour le contrôle du RP2040
     pinMode(BOOTLOADER_PIN, OUTPUT);
     digitalWrite(BOOTLOADER_PIN, HIGH);

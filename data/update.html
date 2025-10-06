@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mise à jour ESP32 — Wi-Fi & BLE</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#fff; --text:#222; --muted:#666;
+    --primary:#0d6efd; --success:#2ba84a; --danger:#dc3545;
+    --border:#e6e8ee;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:640px;margin:40px auto;padding:24px;background:var(--card);
+    border-radius:12px;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.05)}
+  h1{margin:0 0 8px;font-size:1.6rem}
+  p.desc{margin:0 0 20px;color:var(--muted)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .file{flex:1;display:flex;gap:10px;align-items:center}
+  input[type="file"]{display:block}
+  button{border:0;border-radius:8px;padding:.7rem 1rem;font-weight:600;color:#fff;background:var(--primary);cursor:pointer}
+  button.secondary{background:#6c757d}
+  button.success{background:var(--success)}
+  button.danger{background:var(--danger)}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  .progress{margin:14px 0;height:16px;background:#e9edf5;border-radius:8px;overflow:hidden}
+  .bar{height:100%;width:0%;background:var(--primary);color:#fff;font-size:12px;line-height:16px;text-align:center;transition:width .2s}
+  .log{margin-top:16px;background:#fafbff;border:1px solid var(--border);border-radius:8px;padding:10px;min-height:140px;max-height:280px;overflow:auto;
+    font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;font-size:13px;white-space:pre-wrap}
+  .muted{color:var(--muted);font-size:.9rem}
+  .hint{margin-top:6px;color:var(--muted);font-size:.9rem}
+  .footer{margin-top:16px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .mode{display:flex;gap:8px;align-items:center;margin:8px 0 14px}
+  .toggle{border:1px solid var(--border);background:#fff;color:#111;border-radius:999px;padding:.35rem .9rem;cursor:pointer}
+  .toggle.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .inline{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Mise à jour ESP32</h1>
+    <p class="desc">1) Uploader <code>firmware.bin</code> dans SPIFFS. 2) Lancer “Mettre à jour l’ESP32”. Choisis Wi-Fi ou BLE selon l’environnement.</p>
+
+    <!-- Sélecteur de transport -->
+    <div class="mode">
+      <button id="mode-wifi" class="toggle active" type="button">Wi-Fi</button>
+      <button id="mode-ble" class="toggle" type="button">Bluetooth</button>
+      <button id="ble-connect-btn" class="toggle" type="button" style="display:none;">Se connecter en BLE</button>
+      <span id="ble-status" class="muted"></span>
+    </div>
+
+    <!-- Fichier + upload -->
+    <div class="row">
+      <div class="file">
+        <input id="file" type="file" accept=".bin" />
+        <span id="fname" class="muted">Aucun fichier sélectionné</span>
+      </div>
+      <div class="inline">
+        <button id="btnUpload" disabled>Téléverser</button>
+        <span id="uplabel" class="muted">Prêt.</span>
+      </div>
+    </div>
+
+    <div class="progress"><div id="bar" class="bar">0%</div></div>
+
+    <!-- Actions -->
+    <div class="footer">
+      <button id="btnOTA" class="success" disabled>Mettre à jour l'ESP32</button>
+      <button id="btnReload" class="secondary">Recharger</button>
+    </div>
+
+    <div id="log" class="log"></div>
+    <div class="hint">
+      OTA: envoie <code>CMD:APPLY_OTA</code> via le transport sélectionné.
+      En BLE: upload en chunks (DATA), contrôle via CTRL, notifications pour les logs.
+    </div>
+  </div>
+
+<script>
+/* ========= UI helpers ========= */
+const logDiv = document.getElementById('log');
+function logln(s){ logDiv.textContent += s + '\n'; logDiv.scrollTop = logDiv.scrollHeight; }
+function setBar(p){ const v = Math.max(0, Math.min(100, Math.round(p))); bar.style.width = v+'%'; bar.textContent = v+'%'; }
+
+/* ========= DOM refs ========= */
+const inpFile   = document.getElementById('file');
+const nameSpan  = document.getElementById('fname');
+const btnUpload = document.getElementById('btnUpload');
+const btnOTA    = document.getElementById('btnOTA');
+const btnReload = document.getElementById('btnReload');
+const uplabel   = document.getElementById('uplabel');
+const bar       = document.getElementById('bar');
+
+const modeWifiBtn   = document.getElementById('mode-wifi');
+const modeBleBtn    = document.getElementById('mode-ble');
+const bleConnectBtn = document.getElementById('ble-connect-btn');
+const bleStatus     = document.getElementById('ble-status');
+
+let transport = 'wifi';
+
+/* ========= Wi-Fi (WS + HTTP) ========= */
+let ws = null;
+function wsConnect(){
+  try {
+    ws = new WebSocket(`ws://${window.location.hostname}/ws`);
+    ws.onopen    = () => logln('> WS: connecté');
+    ws.onmessage = (ev) => handleDeviceMessage(String(ev.data || ''));
+    ws.onclose   = () => logln('> WS: déconnecté');
+    ws.onerror   = () => logln('> WS: erreur');
+  } catch(e){ logln('> WS: exception ' + e); }
+}
+function sendOverWifi(cmd){
+  if (!ws || ws.readyState !== 1){ logln('✖ WebSocket non connecté.'); return; }
+  ws.send(cmd);
+}
+
+/* ========= BLE ========= */
+const FW_SERVICE_UUID = 'd3a8f820-9b39-4a7c-9d09-7b5e5a313001';
+const CTRL_CHAR_UUID  = 'd3a8f821-9b39-4a7c-9d09-7b5e5a313001';
+const DATA_CHAR_UUID  = 'd3a8f822-9b39-4a7c-9d09-7b5e5a313001';
+const NOTIF_CHAR_UUID = 'd3a8f823-9b39-4a7c-9d09-7b5e5a313001';
+let ble = { device:null, server:null, ctrl:null, data:null, notif:null };
+
+async function bleConnect(){
+  try {
+    bleStatus.textContent = 'scan...';
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'ESP32-Uploader' }],
+      optionalServices: [FW_SERVICE_UUID]
+    });
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(FW_SERVICE_UUID);
+    const ctrl = await service.getCharacteristic(CTRL_CHAR_UUID);
+    const data = await service.getCharacteristic(DATA_CHAR_UUID);
+    const notif = await service.getCharacteristic(NOTIF_CHAR_UUID);
+    await notif.startNotifications();
+    notif.addEventListener('characteristicvaluechanged', (e) => {
+      const msg = new TextDecoder().decode(e.target.value);
+      handleDeviceMessage(msg);
+    });
+    ble = { device, server, ctrl, data, notif };
+    bleStatus.textContent = 'connecté';
+    logln('✔ BLE connecté.');
+  } catch(e){
+    bleStatus.textContent = 'échec';
+    logln('✖ BLE: ' + e);
+  }
+}
+
+async function sendOverBle(cmd){
+  if (!ble.ctrl){ logln('✖ BLE non connecté.'); return; }
+  await ble.ctrl.writeValue(new TextEncoder().encode(cmd));
+}
+
+/* ========= Transport selection ========= */
+function setMode(m){
+  if (m !== 'wifi' && m !== 'ble') return;
+  transport = m;
+  modeWifiBtn.classList.toggle('active', m==='wifi');
+  modeBleBtn.classList.toggle('active', m==='ble');
+  bleConnectBtn.style.display = (m==='ble') ? '' : 'none';
+  if (m === 'wifi' && (!ws || ws.readyState !== 1)) wsConnect();
+  logln('> Mode ' + m.toUpperCase() + ' sélectionné.');
+}
+modeWifiBtn.addEventListener('click', () => setMode('wifi'));
+modeBleBtn.addEventListener('click', () => setMode('ble'));
+bleConnectBtn.addEventListener('click', bleConnect);
+
+/* ========= File handling ========= */
+inpFile.addEventListener('change', () => {
+  if (inpFile.files && inpFile.files[0]) {
+    const f = inpFile.files[0];
+    nameSpan.textContent = f.name;
+    btnUpload.disabled = !/\.bin$/i.test(f.name);
+  } else {
+    nameSpan.textContent = 'Aucun fichier sélectionné';
+    btnUpload.disabled = true;
+  }
+});
+
+/* ========= Device messages (logs/progress unifiés) ========= */
+function handleDeviceMessage(message){
+  // Progression OTA serveur → "OTA en cours: X%"
+  const mOta = message.match(/OTA en cours:\s*(\d+)%/i);
+  if (mOta){
+    const p = parseInt(mOta[1], 10);
+    setBar(p);
+    uplabel.textContent = 'Mise à jour en cours...';
+  }
+  // Progression d’upload BLE → "Téléversement en cours: X"
+  const mUp = message.match(/Téléversement en cours:\s*(\d+)/i);
+  if (mUp){
+    const p = parseInt(mUp[1], 10);
+    setBar(p);
+    uplabel.textContent = 'Téléversement en cours...';
+  }
+  // Upload terminé (événement côté firmware)
+  if (/UPLOAD_COMPLETE/i.test(message)){
+    uplabel.textContent = 'Upload terminé. Prêt pour OTA.';
+    setBar(100);
+    btnOTA.disabled = false;
+  }
+  // Log brut
+  logln(message);
+}
+
+/* ========= Uploads ========= */
+// Wi-Fi: POST "/" avec form field "firmware"
+function uploadOverWifi(file){
+  return new Promise((resolve, reject)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/', true);
+    xhr.upload.onprogress = (e)=>{
+      if (e.lengthComputable){
+        const p = (e.loaded / e.total) * 100;
+        setBar(p); uplabel.textContent = 'Téléversement en cours...';
+      }
+    };
+    xhr.onload = ()=> (xhr.status === 200 ? resolve() : reject(new Error('HTTP '+xhr.status)));
+    xhr.onerror = ()=> reject(new Error('network'));
+    const form = new FormData();
+    form.append('firmware', file);
+    xhr.send(form);
+  });
+}
+
+// BLE: START_UPLOAD:size, puis chunks sur DATA, puis END_UPLOAD
+async function uploadOverBle(file){
+  if (!ble.ctrl || !ble.data) throw new Error('BLE non connecté');
+  const buf = await file.arrayBuffer();
+  const u8 = new Uint8Array(buf);
+  await ble.ctrl.writeValue(new TextEncoder().encode(`START_UPLOAD:${u8.length}`));
+  const CHUNK = 256; // ajuste si MTU exige
+  for (let off = 0; off < u8.length; ){
+    const slice = u8.subarray(off, Math.min(off+CHUNK, u8.length));
+    try { await ble.data.writeValue(slice); }
+    catch { await ble.data.writeValueWithResponse(slice); }
+    off += slice.length;
+    // indiquer localement une progression approximative même sans notif
+    if ((off & 0x7FFF) === 0){ setBar((off * 100) / u8.length); uplabel.textContent = 'Téléversement en cours...'; }
+  }
+  await ble.ctrl.writeValue(new TextEncoder().encode('END_UPLOAD'));
+}
+
+btnUpload.addEventListener('click', async ()=>{
+  const f = inpFile.files && inpFile.files[0];
+  if (!f){ logln('✖ Aucun fichier'); return; }
+  setBar(0); uplabel.textContent='Téléversement...';
+  btnUpload.disabled = true; btnOTA.disabled = true;
+
+  try{
+    if (transport === 'wifi') {
+      await uploadOverWifi(f);
+      logln('✔ Téléversement (Wi-Fi) terminé. /firmware.bin écrit.');
+      uplabel.textContent = 'Upload terminé. Prêt pour OTA.';
+      setBar(100);
+      btnOTA.disabled = false;
+    } else {
+      await uploadOverBle(f);
+      // Le firmware doit émettre EVENT:UPLOAD_COMPLETE via notif BLE pour déverrouiller OTA
+      logln('✔ Téléversement (BLE) envoyé. Attente confirmation device...');
+      // On ne force pas 100% ici: on laisse la notif fixer l’état réel
+    }
+  } catch(e){
+    logln('✖ Upload: ' + e.message);
+    uplabel.textContent = 'Erreur de téléversement';
+    btnUpload.disabled = false;
+  }
+});
+
+/* ========= Lancer l’OTA ========= */
+btnOTA.addEventListener('click', async ()=>{
+  setBar(0);
+  uplabel.textContent = 'Mise à jour en cours...';
+  if (transport === 'wifi') {
+    if (!ws || ws.readyState !== 1) wsConnect();
+    setTimeout(()=> sendOverWifi('CMD:APPLY_OTA'), 200);
+  } else {
+    await sendOverBle('CMD:APPLY_OTA');
+  }
+  logln('> CMD:APPLY_OTA envoyé via ' + transport.toUpperCase());
+});
+
+/* ========= Divers ========= */
+btnReload.addEventListener('click', ()=> location.reload());
+
+/* ========= Init ========= */
+window.addEventListener('load', ()=>{
+  setMode('wifi');      // défaut
+  wsConnect();          // utile pour recevoir les logs dès le début en Wi-Fi
+});
+</script>
+</body>
+</html>

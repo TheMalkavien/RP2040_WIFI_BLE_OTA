@@ -2,6 +2,7 @@
 #include "config.h"
 #include "rp2040_flasher.h"
 #include "main.h"
+#include "ota_from_spiffs.h"
 
 extern Uploader* uploader;
 
@@ -186,6 +187,25 @@ void BleUpload::handleCtrlCommand(const std::string& s) {
     } else {
       uploader->notifyClients("error:Le RP2040 n'est pas en mode bootloader.");
     }
+    return;
+  }
+  if (s == "CMD:APPLY_OTA") {
+    auto cb = [this](int pct, const char* msg){
+      if (msg && *msg) this->notifyClients(String("log:") + msg);
+      else             this->notifyClients(String("log:OTA en cours: ") + pct + "%");
+    };
+
+    BaseType_t ok = ota_start_task(
+        "/firmware.bin",
+        cb,                         // ← virgule ici
+        false,
+        "ble_ota_task",
+        8192,
+        1,
+        1
+    );
+    if (ok != pdPASS) notifyClients("error:Impossible de lancer la tâche OTA (BLE).");
+    else              notifyClients("log:Lancement OTA (BLE) en tâche dédiée.");
     return;
   }
   uploader->notifyClients(String("error:Commande BLE inconnue: ") + s.c_str());

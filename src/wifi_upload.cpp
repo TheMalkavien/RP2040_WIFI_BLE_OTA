@@ -2,6 +2,7 @@
 #include "config.h"
 #include "main.h"
 #include "rp2040_flasher.h"
+#include "ota_from_spiffs.h"
 
 
 WifiUpload::WifiUpload() {
@@ -30,6 +31,9 @@ void WifiUpload::Setup() {
     server->on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(LittleFS, "/index.html", "text/html");
     });
+    server->on("/update.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/update.html", "text/html");
+});
     server->on("/", HTTP_POST, [](AsyncWebServerRequest *request){
         request->send(200);
     }, handleUpload);
@@ -98,15 +102,35 @@ int onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType
                     uploader->notifyClients("error:Le RP2040 n'est pas en mode bootloader.");
                  }
             }
+
+            if (strcmp((char*)data, "CMD:APPLY_OTA") == 0) {
+                auto cb = [](int pct, const char* msg){
+                    if (msg && *msg) uploader->notifyClients(String("log:") + msg);
+                    else             uploader->notifyClients(String("log:OTA en cours: ") + pct + "%");
+                };
+
+                BaseType_t ok = ota_start_task(
+                    "/firmware.bin",
+                    cb,                         // ← virgule ici
+                    false,                      // delete_after_success
+                    "wifi_ota_task",
+                    8192,                       // stack size (mots FreeRTOS si config par défaut)
+                    1,                          // priorité
+                    1                           // core
+                );
+                if (ok != pdPASS) uploader->notifyClients("error:Impossible de lancer la tâche OTA.");
+                else              uploader->notifyClients("log:Lancement OTA en tâche dédiée (Wi-Fi).");
+                return 0;
+                }
         }
     }
     return 0;
 }
 
 void WifiUpload::handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    resetInactivityTimer();
     static File binFile;
     if (!index) {
+        resetInactivityTimer();
         uploader->notifyClients("log:Début du téléversement...");
         binFile = LittleFS.open("/firmware.bin", "w");
         if (!binFile) {
@@ -121,6 +145,7 @@ void WifiUpload::handleUpload(AsyncWebServerRequest *request, String filename, s
         binFile.close();
         uploader->notifyClients("EVENT:UPLOAD_COMPLETE");
         uploader->notifyClients("log:Fichier reçu. Prêt à préparer le flash.");
+        resetInactivityTimer();
     }
 
 }
