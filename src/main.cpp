@@ -28,7 +28,7 @@ void led_on() {
     #ifdef USE_RGB
         neopixelWrite(RGB_BUILTIN,RGB_BRIGHTNESS,RGB_BRIGHTNESS,RGB_BRIGHTNESS);
     #else
-        digitalWrite(LED_BUILTIN, HIGH); // Allumer la LED
+        digitalWrite(LED_BUILTIN, LOW); // Allumer la LED
     #endif
 }
 
@@ -36,7 +36,7 @@ void led_off() {
     #ifdef USE_RGB
         neopixelWrite(RGB_BUILTIN,0,0,0);
     #else
-        digitalWrite(LED_BUILTIN, LOW); // Éteindre la LED
+        digitalWrite(LED_BUILTIN, HIGH); // Éteindre la LED
     #endif
 }
 
@@ -77,20 +77,6 @@ void goToDeepSleep() {
 #else
     #error "Architecture ESP32 non supportée pour le deep sleep dans ce code."
 #endif
-
-    // --- Fin du code spécifique à l'architecture ---
-  // Neutraliser les lignes vers le RP2040 pour éviter les fuites
-  pinMode(BOOTLOADER_PIN, INPUT);
-  pinMode(RESETRP2040_PIN, INPUT);
-  #ifdef HAS_RTC_GPIO_ISOLATE
-    // Isoler uniquement si disponible et si ces GPIO sont bien des RTC IO
-    #ifdef rtc_gpio_isolate
-        rtc_gpio_isolate((gpio_num_t)2);
-        rtc_gpio_isolate((gpio_num_t)3);
-    #else
-        DEBUG(println("rtc_gpio_isolate is not available in this SDK."));
-    #endif
-  #endif
 
     esp_deep_sleep_start();
 }
@@ -246,6 +232,11 @@ void blink_led() {
         } else {
             led_off();
         }
+    }
+    else if (ledState && (currentMillis - lastBlinkTime >= 100)) {
+        // Éteindre la LED après 100 ms si elle est allumée
+        ledState = !ledState;
+        led_off();
     }
 }
 
