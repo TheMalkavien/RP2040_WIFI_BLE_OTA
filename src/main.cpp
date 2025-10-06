@@ -25,7 +25,7 @@ bool rp2040BootloaderActive = false;
 unsigned long lastActivityTime = 0;
 
 void led_on() {
-    #ifdef RGB_BUILTIN
+    #ifdef USE_RGB
         neopixelWrite(RGB_BUILTIN,RGB_BRIGHTNESS,RGB_BRIGHTNESS,RGB_BRIGHTNESS);
     #else
         digitalWrite(LED_BUILTIN, HIGH); // Allumer la LED
@@ -33,7 +33,7 @@ void led_on() {
 }
 
 void led_off() {
-    #ifdef RGB_BUILTIN
+    #ifdef USE_RGB
         neopixelWrite(RGB_BUILTIN,0,0,0);
     #else
         digitalWrite(LED_BUILTIN, LOW); // Éteindre la LED
@@ -193,7 +193,7 @@ void setup() {
     pinMode(BOOTLOADER_PIN, OUTPUT);
     digitalWrite(BOOTLOADER_PIN, HIGH);
 
-    #ifndef RGB_BUILTIN
+    #ifndef USE_RGB
         pinMode(LED_BUILTIN, OUTPUT);
         digitalWrite(LED_BUILTIN, LOW); // Éteindre la LED au démarrage
     #endif

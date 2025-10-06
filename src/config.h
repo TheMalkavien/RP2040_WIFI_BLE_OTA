@@ -26,9 +26,13 @@
 
 #define RP2040_SERIAL_BAUD 921600
 
-#ifdef RGB_BUILTIN
+#ifdef USE_RGB
 #undef RGB_BUILTIN
 #undef RGB_BRIGHTNESS
 #define RGB_BRIGHTNESS 10 // Change white brightness (max 255)
 #define RGB_BUILTIN 21
+#endif
+#ifdef LED_PIN
+#undef LED_BUILTIN
+#define LED_BUILTIN LED_PIN
 #endif
