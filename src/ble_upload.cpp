@@ -12,6 +12,9 @@ static BleUpload* gBle = nullptr;
 class ServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* s) override {
     if (gBle) gBle->notifyClients("log:Client BLE connecté.");
+
+    // handle=0 : unique connexion
+    s->updateConnParams(0, 6, 9, 0, 400);
   }
   void onDisconnect(NimBLEServer* s) override {
     if (gBle) gBle->notifyClients("error:Client BLE déconnecté.");
@@ -44,7 +47,6 @@ void BleUpload::Setup() {
 
   NimBLEDevice::setPower(ESP_PWR_LVL_P21);
 
-
   NimBLEDevice::setMTU(517);
 
   server = NimBLEDevice::createServer();
@@ -74,8 +76,8 @@ void BleUpload::Setup() {
   adv = NimBLEDevice::getAdvertising();
   adv->addServiceUUID(FW_SERVICE_UUID);
   adv->setScanResponse(true);
-  adv->setMinInterval(1600);                  // 1s attention l'unité est 0.625ms
-  adv->setMaxInterval(3200);                  // 2s
+  adv->setMinInterval(800);                  // 0.5s attention l'unité est 0.625ms
+  adv->setMaxInterval(1600);                  //1s
   adv->start();
   advRunning = true;
 
@@ -86,7 +88,7 @@ void BleUpload::Setup() {
 void BleUpload::notifyClients(const String &message) {
   if (!notifChar) return;
   notifChar->setValue((uint8_t*)message.c_str(), message.length());
-  notifChar->notify(true);
+  notifChar->notify();
 }
 
 void BleUpload::loop() {
@@ -105,7 +107,7 @@ void BleUpload::beginUpload(size_t total) {
     return;
   }
   notifyClients("log:Début du téléversement BLE...");
-  NimBLEDevice::setMTU(517);
+
 }
 
 void BleUpload::endUpload() {
@@ -115,12 +117,11 @@ void BleUpload::endUpload() {
     lastProgressPct = -1;
     notifyClients("EVENT:UPLOAD_COMPLETE");
     notifyClients("log:Fichier reçu (BLE). Prêt à préparer le flash.");
-    NimBLEDevice::setMTU(185);
   }
 }
 
 void BleUpload::onDataChunk(const uint8_t* data, size_t len) {
-  resetInactivityTimer();
+
   if (!binFile) {
     notifyClients("error:Upload non initialisé (CTRL:START_UPLOAD d'abord).");
     return;
@@ -133,6 +134,7 @@ void BleUpload::onDataChunk(const uint8_t* data, size_t len) {
     int p = (int)((received * 100ull) / expectedSize);
     if (p != lastProgressPct) {
       notifyClients(String("log:Téléversement en cours: ") + p + "%");
+        resetInactivityTimer();
       //notifyClients(String("log:act : ") + received + String("total : ") + expectedSize);
       lastProgressPct = p;
     }
