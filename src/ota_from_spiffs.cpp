@@ -200,7 +200,6 @@ static void ota_task(void* pv) {
   };
 
   // Petit message d’entrée
-  throttled_cb(0, "OTA: démarrage…");
 
   // Exécute l’OTA synchrone (qui redémarre à la fin si succès)
   bool ok = ota_apply_from_spiffs(args->path.c_str(), throttled_cb, args->delete_after_success);
