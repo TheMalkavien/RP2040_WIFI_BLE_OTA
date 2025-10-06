@@ -39,7 +39,7 @@
 <body>
   <div class="wrap">
     <h1>Mise à jour ESP32</h1>
-    <p class="desc">1) Uploader <code>firmware.bin</code> vers le FS. 2) Lancer “Mettre à jour l’ESP32”. Choisis Wi-Fi ou BLE.</p>
+    <p class="desc">1) Uploader <code>firmware.bin</code> vers le FS. 2) Lancer “Mettre à jour l’ESP32”. Choisir Wi-Fi ou BLE.</p>
 
     <!-- Sélecteur de transport -->
     <div class="mode">
@@ -71,8 +71,8 @@
 
     <div id="log" class="log"></div>
     <div class="hint">
-      OTA: envoie <code>CMD:APPLY_OTA</code> via le transport sélectionné.  
-      BLE nécessite un navigateur compatible et un contexte sécurisé (HTTPS/localhost).
+      BLE via navigateur compatible et contexte sécurisé (HTTPS/localhost).  
+      OTA: envoi de <code>CMD:APPLY_OTA</code> via le transport sélectionné.
     </div>
   </div>
 
@@ -186,24 +186,28 @@ modeWifiBtn.addEventListener('click', () => setMode('wifi'));
 modeBleBtn.addEventListener('click', () => setMode('ble'));
 bleConnectBtn.addEventListener('click', bleConnect);
 
-/* ========= File handling ========= */
-inpFile.addEventListener('change', () => {
-  if (inpFile.files && inpFile.files[0]) {
-    const f = inpFile.files[0];
-    nameSpan.textContent = f.name;
-    btnUpload.disabled = !/\.bin$/i.test(f.name);
-  } else {
-    nameSpan.textContent = 'Aucun fichier sélectionné';
-    btnUpload.disabled = true;
-  }
-});
-
-/* ========= Device messages (logs/progress monotones) ========= */
+/* ========= Upload/OTA state ========= */
+let uploading = false;
+let lastUploadPct = -1;
+let otaSent = false;
 let lastOtaSeq = -1;
 let lastOtaPct = -1;
 
+function setUploadProgress(p){
+  const v = Math.max(0, Math.min(100, Math.round(p)));
+  if (v >= lastUploadPct) {
+    lastUploadPct = v;
+    setBar(v);
+  }
+}
+function resetUploadProgress(){
+  uploading = false;
+  lastUploadPct = -1;
+}
+
+/* ========= Device messages (logs) ========= */
 function handleDeviceMessage(message){
-  // Format strict: "OTA_PROGRESS <seq> <pct>"
+  // OTA progression stricte: "OTA_PROGRESS <seq> <pct>"
   const mStrict = message.match(/^OTA_PROGRESS\s+(\d+)\s+(\d+)\s*$/);
   if (mStrict){
     const seq = parseInt(mStrict[1], 10);
@@ -217,7 +221,7 @@ function handleDeviceMessage(message){
     return;
   }
 
-  // Compat: "OTA en cours: X%"
+  // Compat OTA: "OTA en cours: X%"
   const mLegacy = message.match(/OTA en cours:\s*(\d+)%\s*$/i);
   if (mLegacy){
     const pct = parseInt(mLegacy[1],10);
@@ -227,43 +231,50 @@ function handleDeviceMessage(message){
     return;
   }
 
-  // Upload BLE progress: "Téléversement en cours: X"
+  // Progression upload côté device: ignorer si on est en upload client
   const mUp = message.match(/Téléversement en cours:\s*(\d+)/i);
   if (mUp){
-    const p = parseInt(mUp[1], 10);
-    if (p >= 0 && p <= 100) setBar(p);
-    uplabel.textContent = 'Téléversement en cours...';
+    if (!uploading) {
+      const p = parseInt(mUp[1], 10);
+      if (!Number.isNaN(p)) setUploadProgress(p);
+      uplabel.textContent = 'Téléversement en cours...';
+    }
     logln(message);
     return;
   }
 
-  // Upload terminé: active le bouton OTA
+  // Upload terminé (événement device)
   if (/EVENT:UPLOAD_COMPLETE/i.test(message)){
+    setUploadProgress(100);
+    resetUploadProgress();
     uplabel.textContent = 'Upload terminé. Prêt pour OTA.';
-    setBar(100);
     btnOTA.disabled = false;
     logln(message);
     return;
   }
 
-  // Autres logs
   logln(message);
 }
 
 /* ========= Uploads ========= */
-// Wi-Fi: POST "/" avec champ "firmware"
+// Wi-Fi: POST "/" champ "firmware"
 function uploadOverWifi(file){
   return new Promise((resolve, reject)=>{
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/', true);
+    uploading = true; lastUploadPct = -1; setBar(0); uplabel.textContent = 'Téléversement en cours...';
+
     xhr.upload.onprogress = (e)=>{
-      if (e.lengthComputable){
-        const p = (e.loaded / e.total) * 100;
-        setBar(p); uplabel.textContent = 'Téléversement en cours...';
-      }
+      if (e.lengthComputable) setUploadProgress((e.loaded / e.total) * 100);
     };
-    xhr.onload = ()=> (xhr.status === 200 ? resolve() : reject(new Error('HTTP '+xhr.status)));
-    xhr.onerror = ()=> reject(new Error('network'));
+    xhr.onload = ()=>{
+      resetUploadProgress();
+      (xhr.status === 200 ? resolve() : reject(new Error('HTTP '+xhr.status)));
+    };
+    xhr.onerror = ()=>{
+      resetUploadProgress();
+      reject(new Error('network'));
+    };
     const form = new FormData();
     form.append('firmware', file);
     xhr.send(form);
@@ -275,38 +286,53 @@ async function uploadOverBle(file){
   if (!ble.ctrl || !ble.data) throw new Error('BLE non connecté');
   const buf = await file.arrayBuffer();
   const u8 = new Uint8Array(buf);
+
+  uploading = true; lastUploadPct = -1; setBar(0); uplabel.textContent = 'Téléversement en cours...';
+
   await ble.ctrl.writeValue(new TextEncoder().encode(`START_UPLOAD:${u8.length}`));
-  const CHUNK = 256; // ajuste si besoin (MTU)
+  const CHUNK = 256; // ajuste si MTU plus grand
   for (let off = 0; off < u8.length; ){
     const slice = u8.subarray(off, Math.min(off+CHUNK, u8.length));
     try { await ble.data.writeValue(slice); }
     catch { await ble.data.writeValueWithResponse(slice); }
     off += slice.length;
-    if ((off & 0x7FFF) === 0){ setBar((off * 100) / u8.length); uplabel.textContent = 'Téléversement en cours...'; }
+    if ((off & 0x7FFF) === 0) setUploadProgress((off * 100) / u8.length);
   }
   await ble.ctrl.writeValue(new TextEncoder().encode('END_UPLOAD'));
+  // Attendre EVENT:UPLOAD_COMPLETE pour activer OTA et fixer 100%
 }
 
 /* ========= Actions ========= */
+inpFile.addEventListener('change', () => {
+  if (inpFile.files && inpFile.files[0]) {
+    const f = inpFile.files[0];
+    nameSpan.textContent = f.name;
+    btnUpload.disabled = !/\.bin$/i.test(f.name);
+  } else {
+    nameSpan.textContent = 'Aucun fichier sélectionné';
+    btnUpload.disabled = true;
+  }
+});
+
 btnUpload.addEventListener('click', async ()=>{
   const f = inpFile.files && inpFile.files[0];
   if (!f){ logln('✖ Aucun fichier'); return; }
-  setBar(0); uplabel.textContent='Téléversement...';
   btnUpload.disabled = true; btnOTA.disabled = true;
 
   try{
     if (transport === 'wifi') {
       await uploadOverWifi(f);
-      logln('✔ Téléversement (Wi-Fi) terminé. /firmware.bin écrit.');
+      // Si le firmware n’émet pas EVENT:UPLOAD_COMPLETE en Wi-Fi:
       uplabel.textContent = 'Upload terminé. Prêt pour OTA.';
-      setBar(100);
+      setUploadProgress(100);
       btnOTA.disabled = false;
     } else {
       await uploadOverBle(f);
       logln('✔ Téléversement (BLE) envoyé. Attente confirmation device...');
-      // EVENT:UPLOAD_COMPLETE doit venir du firmware
+      // Activation OTA à EVENT:UPLOAD_COMPLETE
     }
   } catch(e){
+    resetUploadProgress();
     logln('✖ Upload: ' + e.message);
     uplabel.textContent = 'Erreur de téléversement';
     btnUpload.disabled = false;
@@ -314,7 +340,6 @@ btnUpload.addEventListener('click', async ()=>{
 });
 
 /* ========= Lancer l’OTA (debounce) ========= */
-let otaSent = false;
 btnOTA.addEventListener('click', async ()=>{
   if (otaSent) { logln('> OTA déjà lancée'); return; }
   otaSent = true; btnOTA.disabled = true;
