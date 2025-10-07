@@ -8,6 +8,10 @@ extern Uploader* uploader;
 
 static BleUpload* gBle = nullptr;
 
+static QueueHandle_t s_bleRxQ = nullptr;
+static TaskHandle_t  s_writerTask = nullptr;
+
+
 // ===== Callbacks compatibles NimBLE-Arduino =====
 class ServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* s) override {
@@ -102,12 +106,32 @@ void BleUpload::beginUpload(size_t total) {
   received = 0;
   lastProgressPct = -1;
   binFile = LittleFS.open("/firmware.bin", "w");
-  if (!binFile) {
-    notifyClients("error:Impossible d'ouvrir /firmware.bin");
-    return;
-  }
-  notifyClients("log:Début du téléversement BLE...");
+  if (!binFile) { notifyClients("error:Impossible d'ouvrir /firmware.bin"); return; }
 
+  if (!s_bleRxQ) s_bleRxQ = xQueueCreate(64, sizeof(BleChunk));  // 64 x 256 = 16 KiB buffer
+  if (!s_writerTask) {
+    xTaskCreatePinnedToCore([](void* arg){
+      BleUpload* self = static_cast<BleUpload*>(arg);
+      BleChunk c;
+      for(;;){
+        if (xQueueReceive(s_bleRxQ, &c, portMAX_DELAY) == pdTRUE) {
+          if (self->binFile) self->binFile.write(c.data, c.len);
+          self->received += c.len;
+          if (self->expectedSize > 0) {
+            int p = (int)((self->received * 100ull) / self->expectedSize);
+            // throttle 250 ms mini
+            static uint32_t lastMs=0; static int lastPct=-1;
+            uint32_t now=millis();
+            if ((p != lastPct) && (p - lastPct >= 1 || now - lastMs >= 250)) {
+              self->notifyClients(String("log:Téléversement en cours: ") + p + "%");
+              lastPct = p; lastMs = now;
+            }
+            if (self->received >= self->expectedSize) self->endUpload();
+          }
+        }
+      }
+    }, "ble_fs_writer", 4096, this, 2, &s_writerTask, 1);
+  }
 }
 
 void BleUpload::endUpload() {
@@ -121,26 +145,21 @@ void BleUpload::endUpload() {
 }
 
 void BleUpload::onDataChunk(const uint8_t* data, size_t len) {
-
-  if (!binFile) {
-    notifyClients("error:Upload non initialisé (CTRL:START_UPLOAD d'abord).");
-    return;
-  }
-  binFile.write(data, len);
-  received += len;
-
-  if (expectedSize > 0) {
-
-    int p = (int)((received * 100ull) / expectedSize);
-    if (p != lastProgressPct) {
-      notifyClients(String("log:Téléversement en cours: ") + p + "%");
-        resetInactivityTimer();
-      //notifyClients(String("log:act : ") + received + String("total : ") + expectedSize);
-      lastProgressPct = p;
+  if (!binFile || !s_bleRxQ) { notifyClients("error:Upload non initialisé."); return; }
+  while (len > 0) {
+    BleChunk c;
+    size_t n = len > sizeof(c.data) ? sizeof(c.data) : len;
+    memcpy(c.data, data, n);
+    c.len = (uint16_t)n;
+    if (xQueueSend(s_bleRxQ, &c, 0) != pdTRUE) {
+      // file pleine: on attend un peu pour ne pas drop
+      vTaskDelay(1);
+      continue;
     }
-    if (received >= expectedSize) endUpload();
+    data += n; len -= n;
   }
 }
+
 
 void BleUpload::handleCtrlCommand(const std::string& s) {
   resetInactivityTimer();

@@ -44,3 +44,6 @@ class BleUpload : public Uploader {
     void beginUpload(size_t total);
     void endUpload();
 };
+
+struct BleChunk { uint16_t len; uint8_t data[256]; }; // 256 = ton CHUNK JS
+
