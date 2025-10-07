@@ -300,7 +300,7 @@ async function uploadOverBle(file){
   for (let off = 0; off < u8.length; ){
     const slice = u8.subarray(off, Math.min(off+CHUNK, u8.length));
     // force backpressure fiable
-    await ble.data.writeValueWithResponse(slice);
+    await ble.data.writeValue(slice);
     off += slice.length;
     // >>> plus de setUploadProgress ici <<<
   }
