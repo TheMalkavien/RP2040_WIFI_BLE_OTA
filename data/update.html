@@ -296,11 +296,11 @@ async function uploadOverBle(file){
   uplabel.textContent = 'Téléversement en cours...';
 
   await ble.ctrl.writeValue(new TextEncoder().encode(`START_UPLOAD:${u8.length}`));
-  const CHUNK = 256;
+  const CHUNK = 200;
   for (let off = 0; off < u8.length; ){
     const slice = u8.subarray(off, Math.min(off+CHUNK, u8.length));
-    // force backpressure fiable
-    await ble.data.writeValue(slice);
+  try { await ble.data.writeValue(slice); }
+  catch { await ble.data.writeValueWithResponse(slice); }
     off += slice.length;
     // >>> plus de setUploadProgress ici <<<
   }
