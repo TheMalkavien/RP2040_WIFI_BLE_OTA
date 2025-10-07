@@ -9,7 +9,12 @@
 
 #define SerialDBG Serial
 #define SerialRP2040 Serial1
-#define DEBUG(x) SerialDBG.x
+
+#ifdef ENABLE_DEBUG
+  #define DEBUG(x) SerialDBG.x
+#else
+  #define DEBUG(x)
+#endif
 
 
 #define WAKEUP_PIN GPIO_NUM_3 // same as BOOTLOADER PIN 

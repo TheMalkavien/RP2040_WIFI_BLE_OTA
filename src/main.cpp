@@ -4,9 +4,11 @@
 #include "config.h"
 #include "rp2040_flasher.h"
 #include "uploader.h"
-#include "wifi_upload.h"
+#ifdef USE_WIFI
+#include "wifi/wifi_upload.h"
+#endif
 #include "main.h"
-#include "ble_upload.h"
+#include "ble/ble_upload.h"
 #include "multi_upload.h"
 #if __has_include(<driver/rtc_io.h>)
 #include <driver/rtc_io.h>
