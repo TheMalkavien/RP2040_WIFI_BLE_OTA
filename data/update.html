@@ -231,13 +231,17 @@ function handleDeviceMessage(message){
     return;
   }
 
-  // Progression upload côté device: ignorer si on est en upload client
-  const mUp = message.match(/Téléversement en cours:\s*(\d+)/i);
+  // Progression upload reportée par le device
+  const mUp = message.match(/Téléversement en cours:\s*(\d+)\s*%?/i);
   if (mUp){
-    if (!uploading) {
+    // Si upload en cours ET transport BLE, on suit le device
+    if (uploading && transport === 'ble') {
       const p = parseInt(mUp[1], 10);
-      if (!Number.isNaN(p)) setUploadProgress(p);
-      uplabel.textContent = 'Téléversement en cours...';
+      if (!Number.isNaN(p) && p >= lastUploadPct) {
+        lastUploadPct = p;
+        setBar(p);
+        uplabel.textContent = 'Téléversement en cours...';
+      }
     }
     logln(message);
     return;
@@ -287,19 +291,21 @@ async function uploadOverBle(file){
   const buf = await file.arrayBuffer();
   const u8 = new Uint8Array(buf);
 
-  uploading = true; lastUploadPct = -1; setBar(0); uplabel.textContent = 'Téléversement en cours...';
+  uploading = true;                 // on signale un upload en cours
+  lastUploadPct = -1; setBar(0);
+  uplabel.textContent = 'Téléversement en cours...';
 
   await ble.ctrl.writeValue(new TextEncoder().encode(`START_UPLOAD:${u8.length}`));
-  const CHUNK = 256; // ajuste si MTU plus grand
+  const CHUNK = 256;
   for (let off = 0; off < u8.length; ){
     const slice = u8.subarray(off, Math.min(off+CHUNK, u8.length));
-    try { await ble.data.writeValue(slice); }
-    catch { await ble.data.writeValueWithResponse(slice); }
+    // force backpressure fiable
+    await ble.data.writeValueWithResponse(slice);
     off += slice.length;
-    if ((off & 0x7FFF) === 0) setUploadProgress((off * 100) / u8.length);
+    // >>> plus de setUploadProgress ici <<<
   }
   await ble.ctrl.writeValue(new TextEncoder().encode('END_UPLOAD'));
-  // Attendre EVENT:UPLOAD_COMPLETE pour activer OTA et fixer 100%
+  // on attend EVENT:UPLOAD_COMPLETE depuis le device
 }
 
 /* ========= Actions ========= */
