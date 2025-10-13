@@ -23,10 +23,10 @@
 #define INACTIVITY_TIMEOUT (5 * 60 * 1000)
 
 #ifndef RP2040_SERIAL_TX_PIN
-#define RP2040_SERIAL_TX_PIN TX // to the GPIO9 of the RP2040
+#define RP2040_SERIAL_TX_PIN TX
 #endif
 #ifndef RP2040_SERIAL_RX_PIN
-#define RP2040_SERIAL_RX_PIN RX // to the GPIO8 of the RP2040
+#define RP2040_SERIAL_RX_PIN RX
 #endif
 
 #define RP2040_SERIAL_BAUD 921600
@@ -35,7 +35,7 @@
 #undef RGB_BUILTIN
 #undef RGB_BRIGHTNESS
 #define RGB_BRIGHTNESS 10 // Change white brightness (max 255)
-#define RGB_BUILTIN 21
+#define RGB_BUILTIN USE_RGB
 #endif
 #ifdef LED_PIN
 #undef LED_BUILTIN

@@ -190,7 +190,7 @@ void BleUpload::handleCtrlCommand(const std::string& s) {
   if (s == "CMD:PREPARE_FLASH") {
     uploader->notifyClients("log:Commande reçue (BLE). Préparation bootloader RP2040...");
     digitalWrite(BOOTLOADER_PIN, LOW);
-    delay(10);
+    delay(100);
     digitalWrite(RESETRP2040_PIN, LOW);
     delay(100);
     digitalWrite(RESETRP2040_PIN, HIGH);

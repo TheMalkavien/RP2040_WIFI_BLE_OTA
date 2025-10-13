@@ -185,12 +185,14 @@ void setup() {
 
     printOtaInfo();
     // Configuration des broches pour le contrôle du RP2040
-    pinMode(BOOTLOADER_PIN, OUTPUT);
-    digitalWrite(BOOTLOADER_PIN, HIGH);
     pinMode(RESETRP2040_PIN, OUTPUT);
+    delay(100);
     digitalWrite(RESETRP2040_PIN, HIGH);
+    delay(100);
     pinMode(BOOTLOADER_PIN, OUTPUT);
+    delay(100);
     digitalWrite(BOOTLOADER_PIN, HIGH);
+    delay(100);
 
     #ifndef USE_RGB
         pinMode(LED_BUILTIN, OUTPUT);
