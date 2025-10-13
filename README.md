@@ -33,8 +33,8 @@ Assurez-vous que les deux cartes partagent une masse commune (GND).
 |---------------------|--------------------------------|-------------------------------|------------------------|
 | **GPIO 2**          | **GPIO 2**                     | Contrôle du Reset (optionnel) | **RUN**              |
 | **GPIO 3**          | **GPIO 3**                     | Contrôle du mode Bootloader   | **GPIO 22**            |
-| **GPIO 7 (TX)**     | **GPIO 43 (TX)**               | Communication (Transmission)  | **GPIO 8 (RX)**        |
-| **GPIO 8 (RX)**     | **GPIO 44 (RX)**               | Communication (Réception)     | **GPIO 9 (TX)**        |
+| **GPIO 7 (TX)**     | **GPIO 43 (TX)**               | Communication (Transmission)  | **GPIO 9 (RX)**        |
+| **GPIO 8 (RX)**     | **GPIO 44 (RX)**               | Communication (Réception)     | **GPIO 8 (TX)**        |
 
 ---
 
@@ -114,8 +114,8 @@ Make sure both boards share a common ground (GND).
 |---------------------|-----------------------------|------------------------------|------------|
 | **GPIO 2**          | **GPIO 2**                  | Reset Control (optional)     | **RUN**  |
 | **GPIO 3**          | **GPIO 3**                  | Bootloader Mode Control      | **GPIO 22**|
-| **GPIO 7 (TX)**     | **GPIO 43 (TX)**            | Communication (Transmit)     | **GPIO 8 (RX)** |
-| **GPIO 8 (RX)**     | **GPIO 44 (RX)**            | Communication (Receive)      | **GPIO 9 (TX)** |
+| **GPIO 7 (TX)**     | **GPIO 43 (TX)**            | Communication (Transmit)     | **GPIO 9 (RX)** |
+| **GPIO 8 (RX)**     | **GPIO 44 (RX)**            | Communication (Receive)      | **GPIO 8 (TX)** |
 
 ---
 
