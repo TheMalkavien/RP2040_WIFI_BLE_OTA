@@ -31,7 +31,7 @@ void led_on() {
     #ifdef USE_RGB
         neopixelWrite(RGB_BUILTIN,RGB_BRIGHTNESS,RGB_BRIGHTNESS,RGB_BRIGHTNESS);
     #else
-        digitalWrite(LED_BUILTIN, LOW); // Allumer la LED
+        digitalWrite(LED_BUILTIN, LOW);
     #endif
 }
 
@@ -39,14 +39,14 @@ void led_off() {
     #ifdef USE_RGB
         neopixelWrite(RGB_BUILTIN,0,0,0);
     #else
-        digitalWrite(LED_BUILTIN, HIGH); // Éteindre la LED
+        digitalWrite(LED_BUILTIN, HIGH);
     #endif
 }
 
 void resetInactivityTimer() {
-    noInterrupts(); // Désactiver les interruptions
+    noInterrupts();
     lastActivityTime = millis();
-    interrupts(); // Réactiver les interruptions
+    interrupts();
     DEBUG(println("Activity detected, inactivity timer reset."));
 }
 
@@ -58,14 +58,11 @@ void goToDeepSleep() {
     int level = digitalRead(BOOTLOADER_PIN);
     DEBUG(println(level ? "BOOTLOADER_PIN is HIGH, will wake up on LOW" : "BOOTLOADER_PIN is LOW, will wake up on HIGH"));
 
-    // --- Début du code spécifique à l'architecture ---
-
 #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2)
-    // Ce bloc est pour les ESP32-C3, C6, H2 etc. (qui n'ont pas ext0)
+
 
     const uint64_t WAKEUP_PIN_BITMASK = 1ULL << WAKEUP_PIN;
 
-    // On recrée la logique '!level' :
     // Si level est HIGH (1), on se réveille sur LOW.
     // Si level est LOW (0), on se réveille sur HIGH.
     esp_deepsleep_gpio_wake_up_mode_t wakeup_mode = (level == HIGH) ? ESP_GPIO_WAKEUP_GPIO_LOW : ESP_GPIO_WAKEUP_GPIO_HIGH;
@@ -73,7 +70,6 @@ void goToDeepSleep() {
     esp_deep_sleep_enable_gpio_wakeup(WAKEUP_PIN_BITMASK, wakeup_mode);
 
 #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    // Ce bloc est pour les ESP32 classiques, S2 et S3 (qui ont tous ext0)
 
     esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, !level);
 
@@ -110,8 +106,6 @@ void printWakeupReason() {
 #endif
       Serial.print("  Wakeup GPIO mask: 0x");
       Serial.println((uint32_t)(wakeup_gpio_mask), HEX);
-
-      // (optionnel) afficher quels GPIOs sont en cause
       for (int i = 0; i < 64; ++i) {
         if (wakeup_gpio_mask & (1ULL << i)) {
           Serial.printf("  GPIO %d triggered wake-up\n", i);
@@ -153,8 +147,7 @@ void printWakeupReason() {
 
 inline void enable_pm_light_sleep() {
   esp_pm_config_esp32_t cfg{};
-  // Fréquences S3 typiques: 80/240 MHz. Idle à 80, perf à 240 si tu compiles en dynfreq.
-  cfg.max_freq_mhz = 80;   // baisse plafond si possible
+  cfg.max_freq_mhz = 80;
   cfg.light_sleep_enable = true;
   esp_pm_configure(&cfg);
 }
@@ -162,15 +155,12 @@ inline void enable_pm_light_sleep() {
 void setup() {
     setCpuFrequencyMhz(80);  // 80 MHz semble être le plancher stable pour 921600
     enable_pm_light_sleep();
-    // Initialisation de l'UART pour le débogage
 
     SerialDBG.begin(DBG_SERIAL_BAUD);
 
     // Initialisation de l'UART1 pour la communication avec le RP2040 sur les broches spécifiées
     SerialRP2040.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
 
-    //pinMode(RP2040_SERIAL_RX_PIN, INPUT);
-    //pinMode(RP2040_SERIAL_TX_PIN, INPUT);
     delay(500); // Attendre que l'UART soit prête
     printWakeupReason();
 
@@ -224,7 +214,6 @@ void setup() {
       esp_wifi_stop();
       esp_wifi_deinit();
     } else {
-      // Oui, si tu désactives tout, c’est le néant.
       while (true) { DEBUG(println("Aucun transport activé.")); delay(1000); }
     }
     uploader->Setup();
@@ -241,7 +230,7 @@ void blink_led() {
     if (currentMillis - lastBlinkTime >= 1000)
     {
         lastBlinkTime = currentMillis;
-        ledState = !ledState; // Inverser l'état de la LED
+        ledState = !ledState;
         if (ledState) {
             led_on();
         } else {
@@ -249,7 +238,6 @@ void blink_led() {
         }
     }
     else if (ledState && (currentMillis - lastBlinkTime >= 100)) {
-        // Éteindre la LED après 100 ms si elle est allumée
         ledState = !ledState;
         led_off();
     }
@@ -257,9 +245,9 @@ void blink_led() {
 
 void loop() {
     unsigned long currentTime;
-    noInterrupts(); // Désactiver les interruptions
+    noInterrupts();
     currentTime = millis() - lastActivityTime;
-    interrupts(); // Réactiver les interruptions
+    interrupts();
 
     if (currentTime > INACTIVITY_TIMEOUT) {
         DEBUG(printf("Inactivity timeout reached: %lu ms. Last activity at: %lu ms\n", currentTime, lastActivityTime));
