@@ -32,7 +32,7 @@ Assurez-vous que les deux cartes partagent une masse commune (GND).
 | Broche ESP32S3-zero | Broche ESP32S3-xiao seedstudio | Rôle                          | Vers la broche RP2040 |
 |---------------------|--------------------------------|-------------------------------|------------------------|
 | **GPIO 2 (PIN 2)**          | **GPIO 2 (A1/D1)**                     | Contrôle du Reset (optionnel) | **RUN**              |
-| **GPIO 3 (PIN 3)**          | **GPIO 3 (A2/D2)**                     | Contrôle du mode Bootloader   | **GPIO 22**            |
+| **GPIO 3 (PIN 3)**          | **GPIO 3 (A2/D2)**                     | Contrôle du mode Bootloader   | **GPIO 22 / PIN22**            |
 | **GPIO 7 (TX)**     | **GPIO 43 (TX)**               | Communication (Transmission)  | **GPIO 9 (RX)**        |
 | **GPIO 8 (RX)**     | **GPIO 44 (RX)**               | Communication (Réception)     | **GPIO 8 (TX)**        |
 
