@@ -2,7 +2,7 @@
 #include "esp_sleep.h"
 #include "esp_ota_ops.h"
 #include "config.h"
-#include "rp2040_flasher.h"
+#include "rp2040_flasher/rp2040_flasher.h"
 #include "uploader.h"
 #ifdef USE_WIFI
 #include "wifi/wifi_upload.h"
@@ -21,7 +21,7 @@ extern "C" {
   #include "esp_system.h"
 #include <esp32/pm.h>
 }
-#include "ota_from_spiffs.h"
+#include "esp32_ota/ota_from_spiffs.h"
 
 Uploader* uploader = 0;
 bool rp2040BootloaderActive = false;
@@ -77,7 +77,17 @@ void goToDeepSleep() {
     #error "Architecture ESP32 non supportée pour le deep sleep dans ce code."
 #endif
 
+#ifdef USE_RGB
+    gpio_set_direction((gpio_num_t)RGB_BUILTIN, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)RGB_BUILTIN, 0);
+    gpio_hold_en((gpio_num_t)RGB_BUILTIN);
+    gpio_deep_sleep_hold_en();
+#endif
     esp_deep_sleep_start();
+#ifdef USE_RGB
+    gpio_deep_sleep_hold_dis();
+    gpio_hold_dis((gpio_num_t)RGB_BUILTIN);
+#endif
 }
 
 

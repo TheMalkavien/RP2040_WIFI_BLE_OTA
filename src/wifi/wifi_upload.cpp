@@ -1,8 +1,8 @@
 #include "wifi_upload.h"
 #include "config.h"
 #include "main.h"
-#include "rp2040_flasher.h"
-#include "ota_from_spiffs.h"
+#include "rp2040_flasher/rp2040_flasher.h"
+#include "esp32_ota/ota_from_spiffs.h"
 
 
 WifiUpload::WifiUpload() {

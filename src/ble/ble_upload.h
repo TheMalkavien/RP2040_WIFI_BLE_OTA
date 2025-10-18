@@ -5,7 +5,7 @@
 #include "uploader.h"
 #include "config.h"
 #include "main.h"
-#include "rp2040_flasher.h"
+#include "rp2040_flasher/rp2040_flasher.h"
 
 #define FW_SERVICE_UUID   "d3a8f820-9b39-4a7c-9d09-7b5e5a313001"
 #define CTRL_CHAR_UUID    "d3a8f821-9b39-4a7c-9d09-7b5e5a313001"

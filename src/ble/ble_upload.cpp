@@ -1,8 +1,7 @@
 #include "ble_upload.h"
 #include "config.h"
-#include "rp2040_flasher.h"
 #include "main.h"
-#include "ota_from_spiffs.h"
+#include "esp32_ota/ota_from_spiffs.h"
 
 extern Uploader* uploader;
 
