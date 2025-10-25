@@ -84,10 +84,7 @@ void goToDeepSleep() {
     gpio_deep_sleep_hold_en();
 #endif
     esp_deep_sleep_start();
-#ifdef USE_RGB
-    gpio_deep_sleep_hold_dis();
-    gpio_hold_dis((gpio_num_t)RGB_BUILTIN);
-#endif
+// Jamais atteint
 }
 
 
@@ -197,6 +194,16 @@ void setup() {
     #ifndef USE_RGB
         pinMode(LED_BUILTIN, OUTPUT);
         digitalWrite(LED_BUILTIN, LOW); // Éteindre la LED au démarrage
+    #endif
+
+    #ifdef USE_RGB
+        // Si la GPIO RGB était holdée avant le deep sleep, la relâcher au boot
+        gpio_deep_sleep_hold_dis();
+        gpio_hold_dis((gpio_num_t)RGB_BUILTIN);
+
+        pinMode(RGB_BUILTIN, OUTPUT);
+        delay(100);
+        neopixelWrite(RGB_BUILTIN, 0, 0, 0);       // clear strip (ligne de données propre)
     #endif
 
     resetInactivityTimer();
