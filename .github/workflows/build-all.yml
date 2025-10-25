@@ -107,4 +107,4 @@ jobs:
           name: ${{ env.RELEASE_NAME }}
           body: ${{ env.RELEASE_BODY }}
           files: |
-            artifacts/firmware-*.bin
+            artifacts/**/firmware-*.bin
