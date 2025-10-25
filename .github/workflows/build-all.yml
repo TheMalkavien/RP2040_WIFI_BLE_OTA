@@ -58,6 +58,8 @@ jobs:
     needs: build
     permissions:
       contents: write
+    env:
+      ASSET_NAME: ${{ matrix.env }}
 
     steps:
       - name: Checkout repo
@@ -84,16 +86,23 @@ jobs:
           echo "Listing downloaded artifacts:"
           ls -R artifacts || true
 
+      - name: Zip the downloaded files
+        run: zip -j -r ${{ env.ASSET_NAME }}.zip ./artefact-downloads
+
       - name: Create Release and upload firmware files
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ${{ env.RELEASE_NAME }}
           body: ${{ env.RELEASE_BODY }}
-          # Upload tous les .bin, .elf, .map contenus dans artifacts/
-          files: |
-            artifacts/**/*.bin
-            artifacts/**/*.elf
-            artifacts/**/*.map
+
+
+      - name: Upload release asset to GitHub
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./${{ env.ASSET_NAME }}.zip
+          asset_name: ${{ env.ASSET_NAME }}.zip
+          asset_content_type: application/zip
