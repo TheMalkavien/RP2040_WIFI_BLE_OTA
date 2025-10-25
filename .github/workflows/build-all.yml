@@ -53,8 +53,10 @@ jobs:
             ls -la .pio/build || true
         shell: bash
       - name: Rename firmware binaries
-        run: /bin/mv .pio/build/${{ matrix.env }}/firmware.bin .pio/build/${{ matrix.env }}/firmware-${{ matrix.env }}.bin && \
-             /bin/mv .pio/build/${{ matrix.env }}/firmware-combined.bin .pio/build/${{ matrix.env }}/firmware-combined-${{ matrix.env }}.bin
+        run: |
+            /bin/mv .pio/build/${{ matrix.env }}/firmware.bin .pio/build/${{ matrix.env }}/firmware-${{ matrix.env }}.bin
+            /bin/mv .pio/build/${{ matrix.env }}/firmware-combined.bin .pio/build/${{ matrix.env }}/firmware-combined-${{ matrix.env }}.bin
+        shell: bash
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
