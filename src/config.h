@@ -1,4 +1,5 @@
 #pragma once
+#include <Arduino.h>
 
 #define MY_SSID "ESP32-Uploader"
 #define MY_PASSWORD "12345678"
