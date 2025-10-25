@@ -44,7 +44,14 @@ jobs:
           echo "Listing build output:"
           ls -la .pio/build/${{ matrix.env }} || true
           find .pio/build/${{ matrix.env }} -maxdepth 2 -type f -print || true
-
+      - name: Debug environment (why is mv missing?)
+        run: |
+            echo "PATH=$PATH"
+            which mv || echo "which mv failed"
+            ls -la /bin/mv /usr/bin/mv || true
+            echo "ls .pio/build:"
+            ls -la .pio/build || true
+        shell: bash
       - name: Rename firmware binaries
         run: /bin/mv .pio/build/${{ matrix.env }}/firmware.bin .pio/build/${{ matrix.env }}/firmware-${{ matrix.env }}.bin && \
              /bin/mv .pio/build/${{ matrix.env }}/firmware-combined.bin .pio/build/${{ matrix.env }}/firmware-combined-${{ matrix.env }}.bin
