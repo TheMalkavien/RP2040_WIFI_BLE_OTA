@@ -87,7 +87,7 @@ jobs:
           ls -R artifacts || true
 
       - name: Zip the downloaded files
-        run: zip -j -r ${{ env.ASSET_NAME }}.zip ./artefact-downloads
+        run: zip -j -r ${{ env.ASSET_NAME }}.zip ./artifacts
 
       - name: Create Release and upload firmware files
         uses: softprops/action-gh-release@v2
