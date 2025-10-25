@@ -1,0 +1,65 @@
+name: PlatformIO — Build all envs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.env }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - esp32s3-zero
+          - esp32c3-supermini
+          - esp32s3-xiao
+          - esp32s3-supermini
+          - esp32s3-xiao-bleonly
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U platformio
+          pio --version
+
+      - name: Show PlatformIO & board info (debug)
+        run: |
+          pio platform show espressif32 || true
+          pio boards | sed -n '1,200p' || true
+
+      - name: Build environment ${{ matrix.env }}
+        run: |
+          echo "Building environment: ${{ matrix.env }}"
+          pio run -e "${{ matrix.env }}" --project-dir . --verbose
+          echo "Listing build output:"
+          ls -la .pio/build/${{ matrix.env }} || true
+          find .pio/build/${{ matrix.env }} -maxdepth 2 -type f -print || true
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.env }}
+          path: |
+            .pio/build/${{ matrix.env }}/firmware.bin
+            .pio/build/${{ matrix.env }}/firmware-combined.bin
+
