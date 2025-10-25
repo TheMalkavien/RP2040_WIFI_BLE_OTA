@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include "ota_from_spiffs.h"
 #include <FS.h>
 #include <LittleFS.h>

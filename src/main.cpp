@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <LittleFS.h>
 #include "esp_sleep.h"
 #include "esp_ota_ops.h"
