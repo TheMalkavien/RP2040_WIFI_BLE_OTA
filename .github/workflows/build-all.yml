@@ -52,4 +52,48 @@ jobs:
           path: |
             .pio/build/${{ matrix.env }}/firmware.bin
             .pio/build/${{ matrix.env }}/firmware-combined.bin
+  create_release:
+    name: Create GitHub release (timestamp)
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
 
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        # télécharge tous les artifacts uploadés par les jobs build
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Set release tag, name and body
+        id: set_tag
+        run: |
+          # Format de tag: vYYYYMMDD-HHMM (UTC)
+          TAG="v$(date -u +'%Y%m%d-%H%M')"
+          echo "RELEASE_TAG=${TAG}" >> $GITHUB_ENV
+          echo "RELEASE_NAME=${TAG}" >> $GITHUB_ENV
+          echo "RELEASE_BODY=Automated build from commit ${GITHUB_SHA} (run ${GITHUB_RUN_NUMBER})" >> $GITHUB_ENV
+          echo "Created tag: ${TAG}"
+
+      - name: Show artifacts (debug)
+        run: |
+          echo "Listing downloaded artifacts:"
+          ls -R artifacts || true
+
+      - name: Create Release and upload firmware files
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_NAME }}
+          body: ${{ env.RELEASE_BODY }}
+          # Upload tous les .bin, .elf, .map contenus dans artifacts/
+          files: |
+            artifacts/**/*.bin
+            artifacts/**/*.elf
+            artifacts/**/*.map
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
