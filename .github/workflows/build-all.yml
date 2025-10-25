@@ -45,6 +45,10 @@ jobs:
           ls -la .pio/build/${{ matrix.env }} || true
           find .pio/build/${{ matrix.env }} -maxdepth 2 -type f -print || true
 
+      - name: Rename firmware binaries
+        run: mv .pio/build/${{ matrix.env }}/firmware.bin .pio/build/${{ matrix.env }}/firmware-${{ matrix.env }}.bin && \
+             mv .pio/build/${{ matrix.env }}/firmware-combined.bin .pio/build/${{ matrix.env }}/firmware-combined-${{ matrix.env }}.bin
+
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
