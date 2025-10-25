@@ -50,8 +50,8 @@ jobs:
         with:
           name: firmware-${{ matrix.env }}
           path: |
-            .pio/build/${{ matrix.env }}/firmware.bin
-            .pio/build/${{ matrix.env }}/firmware-combined.bin
+            .pio/build/${{ matrix.env }}/firmware-${{ matrix.env }}.bin
+            .pio/build/${{ matrix.env }}/firmware-combined-${{ matrix.env }}.bin
   create_release:
     name: Create GitHub release (timestamp)
     runs-on: ubuntu-latest
@@ -86,23 +86,12 @@ jobs:
           echo "Listing downloaded artifacts:"
           ls -R artifacts || true
 
-      - name: Zip the downloaded files
-        run: zip -j -r ${{ env.ASSET_NAME }}.zip ./artifacts
-
       - name: Create Release and upload firmware files
         uses: softprops/action-gh-release@v2
+        id: create-release
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ${{ env.RELEASE_NAME }}
           body: ${{ env.RELEASE_BODY }}
-
-
-      - name: Upload release asset to GitHub
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ env.ASSET_NAME }}.zip
-          asset_name: ${{ env.ASSET_NAME }}.zip
-          asset_content_type: application/zip
+          files: |
+            artifacts/firmware-*.bin
