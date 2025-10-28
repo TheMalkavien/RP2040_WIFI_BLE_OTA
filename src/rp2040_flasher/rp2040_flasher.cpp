@@ -86,6 +86,7 @@ uint32_t calculateCrc32FromFile(File& file) {
 
 // Fonction pour initialiser le processus de flashage
 void startFlashProcess(FlasherState fs, bool resetInactivity) {
+
     flasherState = fs;
     stateStartTime = millis();
     lastProgress = 0;

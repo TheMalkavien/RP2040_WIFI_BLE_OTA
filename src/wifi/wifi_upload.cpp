@@ -3,11 +3,13 @@
 #include "main.h"
 #include "rp2040_flasher/rp2040_flasher.h"
 #include "esp32_ota/ota_from_spiffs.h"
+#include "serial_bridge.h"
 
 
 WifiUpload::WifiUpload() {
     server = new AsyncWebServer(80);
     ws = new AsyncWebSocket("/ws");
+
 }   
 
 WifiUpload::~WifiUpload() {
@@ -39,6 +41,7 @@ void WifiUpload::Setup() {
     }, handleUpload);
 
     server->begin();
+    serialBridgeBegin();
 }
 
 int onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
@@ -151,4 +154,5 @@ void WifiUpload::handleUpload(AsyncWebServerRequest *request, String filename, s
 }
 void WifiUpload::loop() {
     ws->cleanupClients();
+    serialBridgeLoop();
 }

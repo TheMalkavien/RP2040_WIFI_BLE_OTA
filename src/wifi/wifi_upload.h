@@ -17,6 +17,7 @@ class WifiUpload : public Uploader {
     void notifyClients(const String &message);  
     void loop();
     static void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
+    
     private:    
     AsyncWebServer *server;
     AsyncWebSocket *ws;

@@ -23,6 +23,7 @@ extern "C" {
 #include <esp32/pm.h>
 }
 #include "esp32_ota/ota_from_spiffs.h"
+#include "wifi/serial_bridge.h"
 
 Uploader* uploader = 0;
 bool rp2040BootloaderActive = false;
@@ -166,7 +167,6 @@ void setup() {
 
     SerialDBG.begin(DBG_SERIAL_BAUD);
 
-    // Initialisation de l'UART1 pour la communication avec le RP2040 sur les broches spécifiées
     SerialRP2040.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
 
     delay(500); // Attendre que l'UART soit prête
@@ -234,6 +234,7 @@ void setup() {
     } else {
       while (true) { DEBUG(println("Aucun transport activé.")); delay(1000); }
     }
+
     uploader->Setup();
 
 
