@@ -23,6 +23,7 @@ void WifiUpload::notifyClients(const String& message) {
 
 void WifiUpload::Setup() {
     WiFi.softAP(MY_SSID, MY_PASSWORD);
+    WiFi.setSleep(false);
     DEBUG(print("AP IP address: "));
     DEBUG(println(WiFi.softAPIP()));
 
