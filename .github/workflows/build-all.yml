@@ -1,12 +1,61 @@
-name: PlatformIO — Build all envs
+name: PlatformIO — Build all envs (no artifacts)
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  # ------------------------------------------------------------
+  # 1) Calcule le tag horodaté et prépare le corps de la release
+  # ------------------------------------------------------------
+  set-release-info:
+    name: Prepare release tag/name/body
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.mk.outputs.tag }}
+      name: ${{ steps.mk.outputs.name }}
+      body: ${{ steps.mk.outputs.body }}
+    steps:
+      - name: Compute timestamped tag
+        id: mk
+        run: |
+          TAG="v$(date -u +'%Y%m%d-%H%M')"
+          NAME="$TAG"
+          BODY="Automated build from commit ${GITHUB_SHA} (run ${GITHUB_RUN_NUMBER})"
+          {
+            echo "tag=$TAG"
+            echo "name=$NAME"
+            echo "body=$BODY"
+          } >> "$GITHUB_OUTPUT"
+
+  # ------------------------------------------------------------
+  # 2) Crée la release UNE SEULE FOIS
+  # ------------------------------------------------------------
+  create-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs: [set-release-info]
+    permissions:
+      contents: write
+    steps:
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.set-release-info.outputs.tag }}
+          name: ${{ needs.set-release-info.outputs.name }}
+          body: ${{ needs.set-release-info.outputs.body }}
+          draft: false
+          prerelease: true
+
+  # ------------------------------------------------------------
+  # 3) Build chaque env et UPLOAD DIRECTEMENT sur la release
+  #    (aucun artifact intermédiaire)
+  # ------------------------------------------------------------
+  build-and-upload:
     name: Build ${{ matrix.env }}
     runs-on: ubuntu-latest
+    needs: [create-release, set-release-info]
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -44,67 +93,41 @@ jobs:
           echo "Listing build output:"
           ls -la .pio/build/${{ matrix.env }} || true
           find .pio/build/${{ matrix.env }} -maxdepth 2 -type f -print || true
-      - name: Debug environment (why is mv missing?)
-        run: |
-            echo "PATH=$PATH"
-            which mv || echo "which mv failed"
-            ls -la /bin/mv /usr/bin/mv || true
-            echo "ls .pio/build:"
-            ls -la .pio/build || true
-        shell: bash
-      - name: Rename firmware binaries
-        run: |
-            /bin/mv .pio/build/${{ matrix.env }}/firmware.bin .pio/build/${{ matrix.env }}/firmware-${{ matrix.env }}.bin
-            /bin/mv .pio/build/${{ matrix.env }}/firmware-combined.bin .pio/build/${{ matrix.env }}/firmware-combined-${{ matrix.env }}.bin
-        shell: bash
 
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
+      - name: Rename firmware binaries (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_DIR=".pio/build/${{ matrix.env }}"
+          if [ -f "$BUILD_DIR/firmware.bin" ]; then
+            mv "$BUILD_DIR/firmware.bin" "$BUILD_DIR/firmware-${{ matrix.env }}.bin"
+          fi
+          if [ -f "$BUILD_DIR/firmware-combined.bin" ]; then
+            mv "$BUILD_DIR/firmware-combined.bin" "$BUILD_DIR/firmware-combined-${{ matrix.env }}.bin"
+          fi
+
+      - name: Package binaries (zip what's available)
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_DIR=".pio/build/${{ matrix.env }}"
+          OUT="out-${{ matrix.env }}"
+          mkdir -p "$OUT"
+          # Copie conditionnelle
+          cp "$BUILD_DIR/firmware-${{ matrix.env }}.bin" "$OUT/" 2>/dev/null || true
+          cp "$BUILD_DIR/firmware-combined-${{ matrix.env }}.bin" "$OUT/" 2>/dev/null || true
+          # Sanity check
+          if [ -z "$(ls -A "$OUT")" ]; then
+            echo "Aucun binaire produit pour ${{ matrix.env }}"; exit 1
+          fi
+          ZIP="${{ needs.set-release-info.outputs.tag }}-${{ matrix.env }}.zip"
+          zip -j "$ZIP" "$OUT"/*
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
         with:
-          name: firmware-${{ matrix.env }}
-          path: |
+          tag_name: ${{ needs.set-release-info.outputs.tag }}
+          files: |
+            ${{ needs.set-release-info.outputs.tag }}-${{ matrix.env }}.zip
             .pio/build/${{ matrix.env }}/firmware-${{ matrix.env }}.bin
             .pio/build/${{ matrix.env }}/firmware-combined-${{ matrix.env }}.bin
-  create_release:
-    name: Create GitHub release (timestamp)
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      contents: write
-    env:
-      ASSET_NAME: ${{ matrix.env }}
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Download build artifacts
-        # télécharge tous les artifacts uploadés par les jobs build
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Set release tag, name and body
-        id: set_tag
-        run: |
-          # Format de tag: vYYYYMMDD-HHMM (UTC)
-          TAG="v$(date -u +'%Y%m%d-%H%M')"
-          echo "RELEASE_TAG=${TAG}" >> $GITHUB_ENV
-          echo "RELEASE_NAME=${TAG}" >> $GITHUB_ENV
-          echo "RELEASE_BODY=Automated build from commit ${GITHUB_SHA} (run ${GITHUB_RUN_NUMBER})" >> $GITHUB_ENV
-          echo "Created tag: ${TAG}"
-
-      - name: Show artifacts (debug)
-        run: |
-          echo "Listing downloaded artifacts:"
-          ls -R artifacts || true
-
-      - name: Create Release and upload firmware files
-        uses: softprops/action-gh-release@v2
-        id: create-release
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: ${{ env.RELEASE_NAME }}
-          body: ${{ env.RELEASE_BODY }}
-          files: |
-            artifacts/**/firmware-*.bin
