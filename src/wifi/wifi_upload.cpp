@@ -5,7 +5,6 @@
 #include "esp32_ota/ota_from_spiffs.h"
 #include "serial_bridge.h"
 
-
 WifiUpload::WifiUpload() {
     server = new AsyncWebServer(80);
     ws = new AsyncWebSocket("/ws");
@@ -24,6 +23,7 @@ void WifiUpload::notifyClients(const String& message) {
 void WifiUpload::Setup() {
     WiFi.softAP(MY_SSID, MY_PASSWORD);
     WiFi.setSleep(false);
+    WiFi.setHostname(MY_SSID);
     DEBUG(print("AP IP address: "));
     DEBUG(println(WiFi.softAPIP()));
 

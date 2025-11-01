@@ -8,7 +8,6 @@
 #include "uploader.h"
 #include "config.h"
 
-
 class WifiUpload : public Uploader {
   public:   
     WifiUpload();

@@ -2,10 +2,13 @@
 #include "config.h"
 #include "rp2040_flasher/rp2040_flasher.h"
 
+extern FlasherState flasherState;
+
+#define UART_BUFFER_SIZE 256
 static WiFiServer tcpServer(4403);
 static WiFiClient client;
 
-static uint8_t  uart_buffer[1024];
+static uint8_t  uart_buffer[UART_BUFFER_SIZE];
 
 void serialBridgeBegin() {
 
@@ -14,6 +17,9 @@ void serialBridgeBegin() {
 }
 
 void serialBridgeLoop() {
+  if (flasherState != IDLE) {
+    return; // Ne pas faire le pont série pendant le flashage
+  }
   // Accept new connection
   if (!client || !client.connected()) {
     client = tcpServer.accept();

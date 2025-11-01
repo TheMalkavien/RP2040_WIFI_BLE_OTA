@@ -167,8 +167,8 @@ void setup() {
 
     SerialDBG.begin(DBG_SERIAL_BAUD);
     
-    SerialRP2040.setRxBufferSize(4096);
-    SerialRP2040.setTxBufferSize(2048);
+    //SerialRP2040.setRxBufferSize(4096);
+    //SerialRP2040.setTxBufferSize(2048);
     SerialRP2040.begin(RP2040_SERIAL_BAUD, SERIAL_8N1, RP2040_SERIAL_RX_PIN, RP2040_SERIAL_TX_PIN);
 
     delay(500); // Attendre que l'UART soit prête
