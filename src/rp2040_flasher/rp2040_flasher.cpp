@@ -13,11 +13,11 @@ uint8_t filebuffer[4096];
 uint32_t currentFilePosition = 0;
 uint32_t currentEraseAddress = 0;
 uint32_t flashStart = 0;
-unsigned long stateStartTime = 0;
+uint32_t stateStartTime = 0;
 uint32_t eraseSize = 0;
 uint32_t writeSize = 0;
 uint32_t currentWriteOffset = 0;
-unsigned long commandSentTime = 0;
+uint32_t commandSentTime = 0;
 int lastProgress = 0;
 extern Uploader* uploader;
 // Variables pour le calcul du CRC

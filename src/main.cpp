@@ -27,7 +27,7 @@ extern "C" {
 
 Uploader* uploader = 0;
 bool rp2040BootloaderActive = false;
-unsigned long lastActivityTime = 0;
+uint32_t lastActivityTime = 0;
 
 void led_on() {
     #ifdef USE_RGB
@@ -86,7 +86,9 @@ void goToDeepSleep() {
     gpio_deep_sleep_hold_en();
 #endif
     esp_deep_sleep_start();
-// Jamais atteint
+// Jamais atteint mais au cas ou on attend 5 secondes et on reboot
+    delay(5000);
+    ESP.restart();
 }
 
 
@@ -244,10 +246,10 @@ void setup() {
 }
 
 void blink_led() {
-    static unsigned long lastBlinkTime = 0;
+    static uint32_t lastBlinkTime = 0;
     static bool ledState = false;
 
-    unsigned long currentMillis = millis();
+    uint32_t currentMillis = millis();
     if (currentMillis - lastBlinkTime >= 1000)
     {
         lastBlinkTime = currentMillis;
@@ -265,12 +267,12 @@ void blink_led() {
 }
 
 void loop() {
-    unsigned long currentTime;
+    uint32_t currentTime;
     noInterrupts();
     currentTime = millis() - lastActivityTime;
     interrupts();
 
-    if (currentTime > INACTIVITY_TIMEOUT) {
+    if (currentTime > INACTIVITY_TIMEOUT || currentTime > MAX_AWAKE_TIME) {
         DEBUG(printf("Inactivity timeout reached: %lu ms. Last activity at: %lu ms\n", currentTime, lastActivityTime));
         DEBUG(println("Too much inactivity, going to deep sleep."));
         DEBUG(flush());

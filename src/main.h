@@ -1,5 +1,5 @@
 #pragma once
 
 extern bool rp2040BootloaderActive;
-extern unsigned long lastActivityTime;
+extern uint32_t lastActivityTime;
 void resetInactivityTimer();

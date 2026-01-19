@@ -27,7 +27,7 @@ class BleUpload : public Uploader {
 
   private:
     bool clientConnected = false;
-    unsigned long lastAdvToggle = 0;
+    uint32_t lastAdvToggle = 0;
     bool advRunning = false;
     NimBLEAdvertising* adv = nullptr;
     NimBLEServer* server = nullptr;
