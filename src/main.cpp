@@ -57,8 +57,8 @@ void goToDeepSleep() {
     pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
     led_off();
     delay(200);
-    int level = digitalRead(BOOTLOADER_PIN);
-    DEBUG(println(level ? "BOOTLOADER_PIN is HIGH, will wake up on LOW" : "BOOTLOADER_PIN is LOW, will wake up on HIGH"));
+    int level = digitalRead(WAKEUP_PIN);
+    DEBUG(println(level ? "WAKEUP_PIN is HIGH, will wake up on LOW" : "WAKEUP_PIN is LOW, will wake up on HIGH"));
 
 #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2)
 
@@ -72,6 +72,11 @@ void goToDeepSleep() {
     esp_deep_sleep_enable_gpio_wakeup(WAKEUP_PIN_BITMASK, wakeup_mode);
 
 #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+
+    // Stop BLE stack (NimBLE) before deep-sleep so tasks do not keep CPU awake.
+    #ifdef USE_BLE
+      NimBLEDevice::deinit();
+    #endif
 
     esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, !level);
 
