@@ -12,6 +12,7 @@ La gestion se fait via une **interface web moderne et intuitive**, accessible au
 * **Glisser-Déposer** : Téléversez vos fichiers `.bin` simplement.  
 * **Suivi en Temps Réel** : Barres de progression pour l’upload et les étapes de flashage (effacement, écriture).  
 * **Console de Statut** : Logs détaillés directement depuis l’interface.  
+* **Console Série** : Page `/serial.html` pour lire et écrire sur l’UART du RP2040 depuis le navigateur, en parallèle du pont TCP sur le port `4403` (`nc`, `telnet`, PuTTY…).  
 * **Mode Point d’Accès WiFi** : L’ESP32 peut créer son propre réseau WiFi pour une utilisation sur le terrain.  
 * **Connexion Bluetooth** : Utilisation simplifiée depuis un smartphone, sans réseau WiFi nécessaire.  
 
@@ -93,6 +94,7 @@ Management is done through a **modern and intuitive web interface**, available o
 * **Drag & Drop**: Upload your `.bin` files easily.  
 * **Real-Time Progress**: Progress bars for upload, erase, and write steps.  
 * **Status Console**: Detailed logs directly in the interface.  
+* **Serial Console**: `/serial.html` page to read from and write to the RP2040 UART from the browser, alongside the TCP bridge on port `4403` (`nc`, `telnet`, PuTTY…).  
 * **WiFi Access Point Mode**: ESP32 creates its own network for offline use.  
 * **Bluetooth Connection**: Easy flashing from a smartphone without WiFi.  
 

@@ -62,6 +62,9 @@ input[type=file]{display:none}
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
 }
+.page-links{margin-top:.75rem;font-size:.85rem}
+.page-links a{color:var(--primary-color);text-decoration:none}
+.page-links a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -115,6 +118,9 @@ input[type=file]{display:none}
       <div style="display:flex; gap:.5rem; flex-wrap:wrap; justify-content:center;">
         <button id="btn-reboot-rp2040" class="btn" type="button" title="Reboot du RP2040">Reboot RP2040</button>
         <button id="btn-reboot-esp32" class="btn" type="button" title="Reboot de l'ESP32">Reboot ESP32</button>
+      </div>
+      <div class="page-links">
+        <a href="/serial.html">Console série RP2040</a> · <a href="/update.html">Mise à jour de l'ESP32</a>
       </div>
     </div>
   </div>

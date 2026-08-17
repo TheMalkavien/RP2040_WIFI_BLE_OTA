@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Console série RP2040</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#fff; --text:#222; --muted:#666;
+    --primary:#0d6efd; --success:#2ba84a; --danger:#dc3545;
+    --border:#e6e8ee;
+    --term-bg:#11151c; --term-fg:#d7dee8; --term-ts:#5b6b7f;
+    --term-tx:#7fd1ff; --term-sys:#e0b341; --term-err:#ff7b72;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:980px;margin:24px auto;padding:20px 24px;background:var(--card);
+    border-radius:12px;border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.05)}
+  h1{margin:0 0 4px;font-size:1.5rem}
+  p.desc{margin:0 0 14px;color:var(--muted);font-size:.92rem}
+  a{color:var(--primary)}
+
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .bar.sep{border-top:1px solid var(--border);padding-top:10px}
+  label.f{display:flex;gap:6px;align-items:center;font-size:.88rem;color:var(--muted);white-space:nowrap}
+  select,input[type=text]{border:1px solid var(--border);border-radius:8px;padding:.45rem .55rem;
+    font-family:inherit;font-size:.9rem;background:#fff;color:var(--text)}
+  button{border:0;border-radius:8px;padding:.5rem .85rem;font-weight:600;font-size:.88rem;
+    color:#fff;background:var(--primary);cursor:pointer}
+  button.secondary{background:#6c757d}
+  button.danger{background:var(--danger)}
+  button:disabled{opacity:.55;cursor:not-allowed}
+
+  .status{display:flex;gap:7px;align-items:center;font-size:.88rem;color:var(--muted);margin-left:auto}
+  .dot{width:10px;height:10px;border-radius:50%;background:#adb5bd}
+  .dot.on{background:var(--success)} .dot.wait{background:#e0b341} .dot.off{background:var(--danger)}
+
+  #out{background:var(--term-bg);color:var(--term-fg);border-radius:10px;padding:10px 12px;
+    height:56vh;min-height:260px;overflow:auto;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    font-size:13px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+  #out .line{min-height:1.45em}
+  #out .ts{color:var(--term-ts)}
+  #out .tx  .txt{color:var(--term-tx)}
+  #out .sys .txt{color:var(--term-sys)}
+  #out .err .txt{color:var(--term-err)}
+
+  .send{display:flex;gap:8px;margin-top:10px}
+  .send input[type=text]{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .stats{margin-top:8px;color:var(--muted);font-size:.82rem;display:flex;gap:14px;flex-wrap:wrap}
+  .hint{margin-top:10px;color:var(--muted);font-size:.84rem;line-height:1.5}
+  code{background:#f1f3f8;padding:1px 4px;border-radius:4px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Console série RP2040</h1>
+    <p class="desc">
+      Lecture et écriture sur l'UART du RP2040, en direct depuis le navigateur.
+      Équivalent au port TCP <code>4403</code> (<code>nc</code>, <code>telnet</code>, PuTTY…), les deux
+      fonctionnent en parallèle. <a href="/">Retour au flasheur</a>
+    </p>
+
+    <div class="bar">
+      <label class="f">Baud
+        <select id="baud">
+          <option>9600</option><option>19200</option><option>38400</option>
+          <option>57600</option><option>115200</option><option>230400</option>
+          <option>460800</option><option>921600</option><option>1000000</option>
+        </select>
+      </label>
+      <label class="f">Fin de ligne
+        <select id="eol">
+          <option value="lf">LF (\n)</option>
+          <option value="crlf">CR+LF (\r\n)</option>
+          <option value="cr">CR (\r)</option>
+          <option value="none">Aucune</option>
+        </select>
+      </label>
+      <button id="btnReset" class="danger" type="button" title="Impulsion sur la broche RESET du RP2040">Reset RP2040</button>
+      <div class="status"><span id="dot" class="dot"></span><span id="stxt">déconnecté</span></div>
+    </div>
+
+    <div class="bar sep">
+      <label class="f"><input type="checkbox" id="echo" checked> Écho local</label>
+      <label class="f"><input type="checkbox" id="autoscroll" checked> Défilement auto</label>
+      <label class="f"><input type="checkbox" id="ts"> Horodatage</label>
+      <label class="f"><input type="checkbox" id="hexview"> Vue hexa</label>
+      <label class="f"><input type="checkbox" id="hexsend"> Saisie en hexa</label>
+      <label class="f"><input type="checkbox" id="direct"> Mode direct (frappe clavier)</label>
+      <button id="btnClear" class="secondary" type="button">Effacer</button>
+      <button id="btnSave" class="secondary" type="button">Enregistrer</button>
+      <button id="btnConn" class="secondary" type="button">Reconnecter</button>
+    </div>
+
+    <div id="out"></div>
+
+    <div class="send">
+      <input type="text" id="input" placeholder="Texte à envoyer, Entrée pour émettre (↑/↓ historique)" autocomplete="off" spellcheck="false">
+      <button id="btnSend" type="button">Envoyer</button>
+    </div>
+
+    <div class="stats">
+      <span>Reçu : <b id="rx">0</b> o</span>
+      <span>Émis : <b id="tx">0</b> o</span>
+      <span id="drops"></span>
+    </div>
+
+    <div class="hint">
+      <b>Vue hexa</b> et <b>saisie en hexa</b> (<code>0A 1B ff</code>, sans fin de ligne ajoutée) s'appliquent aux données suivantes.
+      <b>Mode direct</b> envoie chaque touche immédiatement (Ctrl+lettre → code de contrôle, Ctrl+C envoie 0x03 et ne copie donc plus).
+      La console est suspendue pendant un flashage du RP2040, et le changement de baud est annulé à ce moment-là.
+    </div>
+  </div>
+
+<script>
+/* ===== Références DOM ===== */
+const out       = document.getElementById('out');
+const dot       = document.getElementById('dot');
+const stxt      = document.getElementById('stxt');
+const baudSel   = document.getElementById('baud');
+const eolSel    = document.getElementById('eol');
+const echoChk   = document.getElementById('echo');
+const autoChk   = document.getElementById('autoscroll');
+const tsChk     = document.getElementById('ts');
+const hexViewChk= document.getElementById('hexview');
+const hexSendChk= document.getElementById('hexsend');
+const directChk = document.getElementById('direct');
+const input     = document.getElementById('input');
+const rxSpan    = document.getElementById('rx');
+const txSpan    = document.getElementById('tx');
+const dropSpan  = document.getElementById('drops');
+
+/* ===== État ===== */
+const MAX_LINES = 4000;
+const decoder   = new TextDecoder('utf-8');
+const encoder   = new TextEncoder();
+let ws = null, reconnectTimer = null, wantOpen = true;
+let rxBytes = 0, txBytes = 0, dropped = 0;
+let curLine = null;
+let history = [], histIdx = -1;
+let hexPend = [], hexOffset = 0, hexTimer = null;
+let baudFromDevice = false;
+
+/* ===== Sortie terminal ===== */
+function stamp(){
+  const d = new Date();
+  const p = (n,l=2) => String(n).padStart(l,'0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(),3)}`;
+}
+function trimLines(){
+  while (out.childElementCount > MAX_LINES) {
+    const gone = out.firstChild;
+    out.removeChild(gone);
+    if (gone === curLine) curLine = null;
+  }
+}
+function newLine(cls){
+  const div = document.createElement('div');
+  div.className = 'line' + (cls ? ' ' + cls : '');
+  if (tsChk.checked) {
+    const t = document.createElement('span');
+    t.className = 'ts';
+    t.textContent = stamp() + ' ';
+    div.appendChild(t);
+  }
+  const txt = document.createElement('span');
+  txt.className = 'txt';
+  div.appendChild(txt);
+  out.appendChild(div);
+  trimLines();
+  return div;
+}
+function scroll(){ if (autoChk.checked) out.scrollTop = out.scrollHeight; }
+
+// Écrit un fragment sur la ligne courante (cls ne sert qu'à sa création)
+function writeChunk(text, cls){
+  if (!curLine || curLine.dataset.cls !== (cls || '')) {
+    curLine = newLine(cls);
+    curLine.dataset.cls = cls || '';
+  }
+  curLine.lastChild.textContent += text;
+}
+// Ajoute du texte en respectant les retours à la ligne
+function appendText(text, cls){
+  const parts = text.split('\n');
+  writeChunk(parts[0], cls);
+  for (let i = 1; i < parts.length; i++) {
+    curLine = null;
+    // Un segment final vide (texte terminé par \n) n'ouvre pas de ligne tout de
+    // suite: elle sera créée à l'arrivée des octets suivants, avec le bon horodatage.
+    if (parts[i] !== '' || i < parts.length - 1) writeChunk(parts[i], cls);
+  }
+  scroll();
+}
+function sysLine(msg, isErr){
+  curLine = null;
+  const div = newLine(isErr ? 'err' : 'sys');
+  div.dataset.cls = isErr ? 'err' : 'sys';
+  div.lastChild.textContent = msg;
+  curLine = null;
+  scroll();
+}
+
+/* ===== Vue hexa ===== */
+function hexRow(bytes, offset){
+  let hex = '', asc = '';
+  for (let i = 0; i < 16; i++) {
+    hex += (i < bytes.length ? bytes[i].toString(16).padStart(2,'0') : '  ') + (i === 7 ? '  ' : ' ');
+    if (i < bytes.length) asc += (bytes[i] >= 32 && bytes[i] < 127) ? String.fromCharCode(bytes[i]) : '.';
+  }
+  curLine = null;
+  const div = newLine();
+  div.dataset.cls = '';
+  div.lastChild.textContent = offset.toString(16).padStart(8,'0') + '  ' + hex + ' |' + asc + '|';
+  curLine = null;
+}
+function hexFlush(){
+  if (hexTimer) { clearTimeout(hexTimer); hexTimer = null; }
+  if (hexPend.length) { hexRow(hexPend, hexOffset); hexOffset += hexPend.length; hexPend = []; }
+  scroll();
+}
+function appendHex(bytes){
+  for (const b of bytes) {
+    hexPend.push(b);
+    if (hexPend.length === 16) { hexRow(hexPend, hexOffset); hexOffset += 16; hexPend = []; }
+  }
+  scroll();
+  if (hexTimer) clearTimeout(hexTimer);
+  if (hexPend.length) hexTimer = setTimeout(hexFlush, 300);   // ligne incomplète
+}
+
+/* ===== Données reçues ===== */
+const ANSI = /\x1B\[[0-9;?]*[ -\/]*[@-~]|\x1B[\x40-\x5F]/g;
+function onBytes(buf){
+  const bytes = new Uint8Array(buf);
+  rxBytes += bytes.length;
+  rxSpan.textContent = rxBytes;
+  if (hexViewChk.checked) {
+    appendHex(bytes);
+  } else {
+    hexFlush();
+    const text = decoder.decode(bytes, { stream: true })
+                        .replace(ANSI, '')
+                        .replace(/\r\n/g, '\n')
+                        .replace(/\r/g, '\n');
+    if (text) appendText(text, '');
+  }
+}
+function onNotice(msg){
+  if (msg.startsWith('INFO:BAUD:')) {
+    const b = msg.slice(10);
+    baudFromDevice = true;
+    if (![...baudSel.options].some(o => o.value === b || o.text === b)) {
+      baudSel.add(new Option(b, b));
+    }
+    baudSel.value = b;
+    sysLine('— baudrate UART : ' + b);
+  } else if (msg.startsWith('INFO:DROPPED:')) {
+    dropped += parseInt(msg.slice(13), 10) || 0;
+    dropSpan.textContent = 'Perdus : ' + dropped + ' o (navigateur trop lent)';
+  } else if (msg.startsWith('INFO:ERROR:')) {
+    sysLine('✖ ' + msg.slice(11), true);
+  } else if (msg === 'INFO:RESET') {
+    sysLine('— reset du RP2040');
+  } else if (msg !== 'INFO:PONG') {
+    sysLine('— ' + msg);
+  }
+}
+
+/* ===== WebSocket ===== */
+function setStatus(cls, text){ dot.className = 'dot ' + cls; stxt.textContent = text; }
+function connect(){
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
+  wantOpen = true;
+  setStatus('wait', 'connexion…');
+  try {
+    ws = new WebSocket(`ws://${location.hostname}/wsserial`);
+  } catch (e) {
+    setStatus('off', 'échec'); sysLine('✖ WebSocket : ' + e, true); return;
+  }
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => { setStatus('on', 'connecté'); sysLine('— console connectée'); };
+  ws.onmessage = (ev) => {
+    if (typeof ev.data === 'string') onNotice(ev.data);
+    else onBytes(ev.data);
+  };
+  ws.onclose = () => {
+    setStatus('off', 'déconnecté');
+    hexFlush();
+    if (wantOpen) {
+      sysLine('✖ connexion perdue, nouvelle tentative dans 2 s', true);
+      reconnectTimer = setTimeout(connect, 2000);
+    }
+  };
+  ws.onerror = () => setStatus('off', 'erreur');
+}
+function disconnect(){
+  wantOpen = false;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (ws) { try { ws.close(); } catch {} }
+}
+
+/* ===== Émission ===== */
+function sendBytes(bytes){
+  if (!ws || ws.readyState !== 1) { sysLine('✖ console non connectée', true); return false; }
+  if (!bytes.length) return false;
+  ws.send(bytes);
+  txBytes += bytes.length;
+  txSpan.textContent = txBytes;
+  return true;
+}
+function sendCmd(cmd){
+  if (!ws || ws.readyState !== 1) { sysLine('✖ console non connectée', true); return; }
+  ws.send(cmd);
+}
+function eolBytes(){
+  switch (eolSel.value) {
+    case 'lf':   return [0x0a];
+    case 'cr':   return [0x0d];
+    case 'crlf': return [0x0d, 0x0a];
+    default:     return [];
+  }
+}
+function parseHex(str){
+  const clean = str.replace(/0x/gi, '').replace(/[\s,;:]+/g, '');
+  if (!clean.length || clean.length % 2 || /[^0-9a-f]/i.test(clean)) return null;
+  const b = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < b.length; i++) b[i] = parseInt(clean.substr(i*2, 2), 16);
+  return b;
+}
+function sendLine(){
+  const line = input.value;
+  if (!line.length) {
+    if (!hexSendChk.checked) sendBytes(new Uint8Array(eolBytes()));
+    return;
+  }
+
+  let bytes;
+  if (hexSendChk.checked) {
+    const b = parseHex(line);
+    if (!b) { sysLine('✖ saisie hexa invalide (ex. « 0A 1B ff »)', true); return; }
+    bytes = b;                                    // hexa : aucun ajout de fin de ligne
+  } else {
+    const body = encoder.encode(line);
+    const eol  = eolBytes();
+    bytes = new Uint8Array(body.length + eol.length);
+    bytes.set(body, 0);
+    bytes.set(eol, body.length);
+  }
+  if (!sendBytes(bytes)) return;
+
+  if (echoChk.checked) {
+    curLine = null;
+    appendText((hexSendChk.checked ? '» hex ' : '» ') + line + '\n', 'tx');
+    curLine = null;
+  }
+  if (line !== history[history.length - 1]) history.push(line);
+  histIdx = history.length;
+  input.value = '';
+}
+
+/* ===== Mode direct (frappe clavier) ===== */
+function directKey(e){
+  if (e.altKey || e.metaKey) return null;
+  if (e.ctrlKey) {
+    if (e.key === 'v' || e.key === 'V') return null;             // laisser coller
+    if (e.key.length === 1) {
+      const c = e.key.toUpperCase().charCodeAt(0);
+      if (c >= 64 && c <= 95) return new Uint8Array([c - 64]);   // Ctrl+A..Ctrl+_
+    }
+    return null;
+  }
+  if (e.key === 'Enter')     return new Uint8Array(eolBytes().length ? eolBytes() : [0x0d]);
+  if (e.key === 'Backspace') return new Uint8Array([0x08]);
+  if (e.key === 'Tab')       return new Uint8Array([0x09]);
+  if (e.key === 'Escape')    return new Uint8Array([0x1b]);
+  if (e.key === 'Delete')    return new Uint8Array([0x7f]);
+  if (e.key.length === 1)    return encoder.encode(e.key);
+  return null;
+}
+
+/* ===== Événements ===== */
+input.addEventListener('keydown', (e) => {
+  if (directChk.checked) {
+    const bytes = directKey(e);
+    if (bytes) { e.preventDefault(); sendBytes(bytes); }
+    return;
+  }
+  if (e.key === 'Enter') { e.preventDefault(); sendLine(); }
+  else if (e.key === 'ArrowUp'   && history.length) {
+    e.preventDefault();
+    histIdx = Math.max(0, histIdx - 1);
+    input.value = history[histIdx] || '';
+  }
+  else if (e.key === 'ArrowDown' && history.length) {
+    e.preventDefault();
+    histIdx = Math.min(history.length, histIdx + 1);
+    input.value = history[histIdx] || '';
+  }
+});
+input.addEventListener('paste', (e) => {
+  if (!directChk.checked) return;
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (text) sendBytes(encoder.encode(text));
+});
+directChk.addEventListener('change', () => {
+  input.value = '';
+  input.placeholder = directChk.checked
+    ? 'Mode direct : chaque touche est envoyée immédiatement'
+    : 'Texte à envoyer, Entrée pour émettre (↑/↓ historique)';
+  input.focus();
+});
+hexViewChk.addEventListener('change', () => {
+  if (!hexViewChk.checked) hexFlush();
+  else { curLine = null; hexOffset = 0; }
+});
+
+document.getElementById('btnSend').addEventListener('click', sendLine);
+document.getElementById('btnClear').addEventListener('click', () => {
+  out.innerHTML = ''; curLine = null; hexPend = []; hexOffset = 0;
+  rxBytes = txBytes = dropped = 0;
+  rxSpan.textContent = txSpan.textContent = '0';
+  dropSpan.textContent = '';
+});
+document.getElementById('btnSave').addEventListener('click', () => {
+  hexFlush();
+  const blob = new Blob([out.innerText], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'rp2040-serial.log';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+document.getElementById('btnConn').addEventListener('click', () => {
+  if (ws && ws.readyState === 1) { disconnect(); sysLine('— console déconnectée'); }
+  else connect();
+});
+document.getElementById('btnReset').addEventListener('click', () => sendCmd('CMD:RESET_RP2040'));
+baudSel.addEventListener('change', () => {
+  if (!baudFromDevice) return;         // pas encore de baud connu du device
+  sendCmd('CMD:BAUD:' + baudSel.value);
+});
+
+/* Empêche la mise en veille de l'ESP32 (5 min d'inactivité) tant que la page est ouverte */
+setInterval(() => { if (ws && ws.readyState === 1) ws.send('CMD:PING'); }, 60000);
+
+window.addEventListener('load', () => { connect(); input.focus(); });
+</script>
+</body>
+</html>

@@ -29,6 +29,7 @@ void WifiUpload::Setup() {
 
     ws->onEvent(onWsEvent);
     server->addHandler(ws);
+    server->addHandler(serialConsoleWs());   // console série: /wsserial
 
 
     server->on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -37,6 +38,9 @@ void WifiUpload::Setup() {
     server->on("/update.html", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(LittleFS, "/update.html", "text/html");
 });
+    server->on("/serial.html", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/serial.html", "text/html");
+    });
     server->on("/", HTTP_POST, [](AsyncWebServerRequest *request){
         request->send(200);
     }, handleUpload);
